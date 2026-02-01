@@ -1,0 +1,21 @@
+[package]
+name = "fableforge"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# core
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["ansi"] }
+
+# async
+tokio = { workspace = true, features = ["full"] }
+
+# error
+anyhow.workspace = true
+
+# cli
+clap = { workspace = true, features = ["derive"] }
+
+# project
+fableforge-core.workspace = true

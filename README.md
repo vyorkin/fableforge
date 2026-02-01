@@ -1,2 +1,3 @@
 # fableforge
-Universal fairy tale machine. WIP
+
+Universal fairy tale machine.
