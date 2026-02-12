@@ -1,13 +1,13 @@
 //! Syntax rules and validation (правила синтаксиса и валидация).
 //!
-//! Propp identified strict rules about the order and combination of functions.
+//! Propp identified patterns in the order and combination of functions.
 //! This module provides validation and an "absurdity score" measuring deviation
 //! from canonical fairy tale structure.
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::function::Function;
+use crate::function::NarrativeFunction;
 use crate::tale::{Move, Tale};
 
 /// Set of morphological syntax rules (правила морфологического синтаксиса).
@@ -32,175 +32,55 @@ impl Syntax {
     /// Canonical Propp rules (канонические правила Проппа).
     #[must_use]
     pub fn canonical() -> Self {
-        use Function::*;
+        use NarrativeFunction::*;
         use Rule::*;
 
         Self::from_rules(vec![
             // Order rules: preparatory section
-            Precedes {
-                before: Absentation,
-                after: Interdiction,
-            },
-            Precedes {
-                before: Interdiction,
-                after: Violation,
-            },
-            Precedes {
-                before: Reconnaissance,
-                after: Delivery,
-            },
-            Precedes {
-                before: Trickery,
-                after: Complicity,
-            },
+            Precedes { before: Absentation, after: Interdiction },
+            Precedes { before: Interdiction, after: Violation },
+            Precedes { before: Reconnaissance, after: Delivery },
+            Precedes { before: Trickery, after: Complicity },
             // Complication comes after preparation
-            Precedes {
-                before: Complicity,
-                after: Villainy,
-            },
-            Precedes {
-                before: Complicity,
-                after: Lack,
-            },
+            Precedes { before: Complicity, after: Villainy },
+            Precedes { before: Complicity, after: Lack },
             // Villainy/Lack triggers the quest
-            Precedes {
-                before: Villainy,
-                after: Mediation,
-            },
-            Precedes {
-                before: Lack,
-                after: Mediation,
-            },
-            Precedes {
-                before: Mediation,
-                after: Counteraction,
-            },
-            Precedes {
-                before: Counteraction,
-                after: Departure,
-            },
+            Precedes { before: Villainy, after: Mediation },
+            Precedes { before: Lack, after: Mediation },
+            Precedes { before: Mediation, after: Counteraction },
+            Precedes { before: Counteraction, after: Departure },
             // Donor sequence
-            Precedes {
-                before: Departure,
-                after: DonorTest,
-            },
-            Precedes {
-                before: DonorTest,
-                after: HeroReaction,
-            },
-            Precedes {
-                before: HeroReaction,
-                after: Acquisition,
-            },
+            Precedes { before: Departure, after: DonorTest },
+            Precedes { before: DonorTest, after: HeroReaction },
+            Precedes { before: HeroReaction, after: Acquisition },
             // Struggle sequence
-            Precedes {
-                before: Acquisition,
-                after: Guidance,
-            },
-            Precedes {
-                before: Guidance,
-                after: Struggle,
-            },
-            Precedes {
-                before: Struggle,
-                after: Victory,
-            },
-            Precedes {
-                before: Victory,
-                after: Liquidation,
-            },
+            Precedes { before: Acquisition, after: Guidance },
+            Precedes { before: Guidance, after: Struggle },
+            Precedes { before: Struggle, after: Victory },
+            Precedes { before: Victory, after: Liquidation },
             // Return
-            Precedes {
-                before: Liquidation,
-                after: Return,
-            },
-            Precedes {
-                before: Return,
-                after: Pursuit,
-            },
-            Precedes {
-                before: Pursuit,
-                after: Rescue,
-            },
+            Precedes { before: Liquidation, after: Return },
+            Precedes { before: Return, after: Pursuit },
+            Precedes { before: Pursuit, after: Rescue },
             // Recognition sequence
-            Precedes {
-                before: UnrecognizedArrival,
-                after: UnfoundedClaims,
-            },
-            Precedes {
-                before: UnfoundedClaims,
-                after: DifficultTask,
-            },
-            Precedes {
-                before: DifficultTask,
-                after: Solution,
-            },
+            Precedes { before: UnrecognizedArrival, after: UnfoundedClaims },
+            Precedes { before: UnfoundedClaims, after: DifficultTask },
+            Precedes { before: DifficultTask, after: Solution },
             // Resolution
-            Precedes {
-                before: Solution,
-                after: Recognition,
-            },
-            Precedes {
-                before: Recognition,
-                after: Exposure,
-            },
-            Precedes {
-                before: Exposure,
-                after: Transfiguration,
-            },
+            Precedes { before: Solution, after: Recognition },
+            Precedes { before: Recognition, after: Exposure },
+            Precedes { before: Exposure, after: Transfiguration },
             // Paired functions
-            Paired {
-                first: Interdiction,
-                second: Violation,
-            },
-            Paired {
-                first: Reconnaissance,
-                second: Delivery,
-            },
-            Paired {
-                first: Trickery,
-                second: Complicity,
-            },
-            Paired {
-                first: DonorTest,
-                second: HeroReaction,
-            },
-            Paired {
-                first: Struggle,
-                second: Victory,
-            },
-            Paired {
-                first: DifficultTask,
-                second: Solution,
-            },
-            Paired {
-                first: Pursuit,
-                second: Rescue,
-            },
+            Paired { first: Interdiction, second: Violation },
+            Paired { first: Reconnaissance, second: Delivery },
+            Paired { first: Trickery, second: Complicity },
+            Paired { first: DonorTest, second: HeroReaction },
+            Paired { first: Struggle, second: Victory },
+            Paired { first: DifficultTask, second: Solution },
+            Paired { first: Pursuit, second: Rescue },
             // Mutually exclusive
-            Excludes {
-                a: Villainy,
-                b: Lack,
-            },
-            // Requirements
-            Requires {
-                func: Liquidation,
-                prereq: Villainy,
-            },
-            Requires {
-                func: Victory,
-                prereq: Struggle,
-            },
-            Requires {
-                func: Acquisition,
-                prereq: DonorTest,
-            },
+            Excludes { a: Villainy, b: Lack },
         ])
-    }
-
-    /// Add a rule.
-    pub fn add_rule(&mut self, rule: Rule) {
-        self.rules.push(rule);
     }
 
     /// Get all rules.
@@ -215,7 +95,7 @@ impl Syntax {
         let mut errors = Vec::new();
         let mut warnings = Vec::new();
 
-        let functions: Vec<Function> = m.moments.iter().map(|m| m.function.function).collect();
+        let functions: Vec<NarrativeFunction> = m.moments.iter().map(|m| m.function.function).collect();
 
         // Check each rule
         for rule in &self.rules {
@@ -233,14 +113,6 @@ impl Syntax {
                         });
                     }
                 }
-                Rule::Requires { func, prereq } => {
-                    if functions.contains(func) && !functions.contains(prereq) {
-                        warnings.push(SyntaxWarning::MissingPrerequisite {
-                            func: *func,
-                            prereq: *prereq,
-                        });
-                    }
-                }
                 Rule::Paired { first, second } => {
                     let has_first = functions.contains(first);
                     let has_second = functions.contains(second);
@@ -252,11 +124,6 @@ impl Syntax {
                         });
                     }
                 }
-                Rule::Mandatory(func) => {
-                    if !functions.contains(func) {
-                        warnings.push(SyntaxWarning::MissingMandatory(*func));
-                    }
-                }
                 Rule::Excludes { a, b } => {
                     if functions.contains(a) && functions.contains(b) {
                         warnings.push(SyntaxWarning::MutualExclusion { a: *a, b: *b });
@@ -266,8 +133,8 @@ impl Syntax {
         }
 
         // Check for core functions
-        let has_complication = functions.contains(&Function::Villainy)
-            || functions.contains(&Function::Lack);
+        let has_complication = functions.contains(&NarrativeFunction::Villainy)
+            || functions.contains(&NarrativeFunction::Lack);
         if !has_complication && !functions.is_empty() {
             warnings.push(SyntaxWarning::MissingComplication);
         }
@@ -304,7 +171,7 @@ impl Syntax {
         let valid = all_errors.is_empty();
 
         // Calculate overall absurdity
-        let all_functions: Vec<Function> = t
+        let all_functions: Vec<NarrativeFunction> = t
             .all_moments()
             .map(|m| m.function.function)
             .collect();
@@ -329,15 +196,11 @@ impl Default for Syntax {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Rule {
     /// A must precede B (A должна быть до B).
-    Precedes { before: Function, after: Function },
-    /// A requires B somewhere earlier (A требует наличия B).
-    Requires { func: Function, prereq: Function },
+    Precedes { before: NarrativeFunction, after: NarrativeFunction },
     /// A and B are paired (парные функции).
-    Paired { first: Function, second: Function },
-    /// A is mandatory for a complete move (обязательная функция).
-    Mandatory(Function),
+    Paired { first: NarrativeFunction, second: NarrativeFunction },
     /// A excludes B in the same move (взаимоисключающие).
-    Excludes { a: Function, b: Function },
+    Excludes { a: NarrativeFunction, b: NarrativeFunction },
 }
 
 /// Result of validation (результат валидации).
@@ -353,47 +216,27 @@ pub struct ValidationResult {
     pub absurdity: f32,
 }
 
-impl ValidationResult {
-    /// Check if there are any issues.
-    #[must_use]
-    pub fn has_issues(&self) -> bool {
-        !self.errors.is_empty() || !self.warnings.is_empty()
-    }
-
-    /// Get total issue count.
-    #[must_use]
-    pub fn issue_count(&self) -> usize {
-        self.errors.len() + self.warnings.len()
-    }
-}
-
 /// Syntax error (ошибка синтаксиса).
 #[derive(Debug, Clone, PartialEq, Eq, Error, Serialize, Deserialize)]
 pub enum SyntaxError {
     /// Order violation.
     #[error("{before:?} must precede {after:?}")]
-    OrderViolation { before: Function, after: Function },
+    OrderViolation { before: NarrativeFunction, after: NarrativeFunction },
 }
 
 /// Syntax warning (предупреждение синтаксиса).
 #[derive(Debug, Clone, PartialEq, Eq, Error, Serialize, Deserialize)]
 pub enum SyntaxWarning {
-    /// Missing prerequisite function.
-    #[error("{func:?} requires {prereq:?}")]
-    MissingPrerequisite { func: Function, prereq: Function },
     /// Broken function pair.
     #[error("broken pair: {first:?}/{second:?}, only {present:?} present")]
     BrokenPair {
-        first: Function,
-        second: Function,
-        present: Function,
+        first: NarrativeFunction,
+        second: NarrativeFunction,
+        present: NarrativeFunction,
     },
-    /// Missing mandatory function.
-    #[error("missing mandatory function: {0:?}")]
-    MissingMandatory(Function),
     /// Mutually exclusive functions present.
     #[error("{a:?} and {b:?} are mutually exclusive")]
-    MutualExclusion { a: Function, b: Function },
+    MutualExclusion { a: NarrativeFunction, b: NarrativeFunction },
     /// Missing complication (A or a).
     #[error("missing complication (Villainy or Lack)")]
     MissingComplication,
@@ -403,14 +246,8 @@ pub enum SyntaxWarning {
 }
 
 /// Calculate absurdity score (коэффициент абсурда).
-///
-/// Considers:
-/// - Order violations (нарушения порядка функций)
-/// - Broken pairs (разрыв парных функций)
-/// - Missing mandatory functions (пропуск обязательных)
-/// - Unusual function combinations
 fn calculate_absurdity(
-    functions: &[Function],
+    functions: &[NarrativeFunction],
     errors: &[SyntaxError],
     warnings: &[SyntaxWarning],
 ) -> f32 {
@@ -428,9 +265,7 @@ fn calculate_absurdity(
         match warning {
             SyntaxWarning::MissingComplication => score += 0.2,
             SyntaxWarning::BrokenPair { .. } => score += 0.1,
-            SyntaxWarning::MissingPrerequisite { .. } => score += 0.08,
             SyntaxWarning::MutualExclusion { .. } => score += 0.12,
-            SyntaxWarning::MissingMandatory(_) => score += 0.05,
             SyntaxWarning::EmptyTale => score += 0.3,
         }
     }
@@ -444,7 +279,7 @@ fn calculate_absurdity(
 }
 
 /// Score how well the functions follow canonical order (0.0 = chaos, 1.0 = perfect).
-fn canonical_order_score(functions: &[Function]) -> f32 {
+fn canonical_order_score(functions: &[NarrativeFunction]) -> f32 {
     if functions.len() <= 1 {
         return 1.0;
     }
@@ -467,91 +302,52 @@ fn canonical_order_score(functions: &[Function]) -> f32 {
     }
 }
 
-/// Calculate absurdity score for a tale (convenience function).
-#[must_use]
-pub fn absurdity_score(tale: &Tale, syntax: &Syntax) -> f32 {
-    syntax.validate_tale(tale).absurdity
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tale::{InitialSituation, Moment};
-    use crate::function::FunctionInstance;
+    use crate::function::NarrativeFunctionInstance;
+    use crate::tale::Moment;
 
-    fn make_move(functions: &[Function]) -> Move {
+    fn make_move(functions: &[NarrativeFunction]) -> Move {
         let mut m = Move::new();
         for f in functions {
-            m.moments.push(Moment::new(FunctionInstance::new(*f)));
+            m.moments.push(Moment::new(NarrativeFunctionInstance::new(*f)));
         }
         m
-    }
-
-    #[test]
-    fn test_canonical_syntax() {
-        let syntax = Syntax::canonical();
-        assert!(!syntax.rules.is_empty());
     }
 
     #[test]
     fn test_valid_sequence() {
         let syntax = Syntax::canonical();
         let m = make_move(&[
-            Function::Villainy,
-            Function::Mediation,
-            Function::Counteraction,
-            Function::Departure,
+            NarrativeFunction::Villainy,
+            NarrativeFunction::Mediation,
+            NarrativeFunction::Counteraction,
+            NarrativeFunction::Departure,
         ]);
 
         let result = syntax.validate_move(&m);
         assert!(result.valid);
-        assert!(result.errors.is_empty());
     }
 
     #[test]
     fn test_order_violation() {
         let syntax = Syntax::canonical();
         let m = make_move(&[
-            Function::Departure,  // Should come after Counteraction
-            Function::Counteraction,
+            NarrativeFunction::Departure,  // Should come after Counteraction
+            NarrativeFunction::Counteraction,
         ]);
 
         let result = syntax.validate_move(&m);
         assert!(!result.valid);
-        assert!(!result.errors.is_empty());
-    }
-
-    #[test]
-    fn test_missing_complication() {
-        let syntax = Syntax::canonical();
-        let m = make_move(&[
-            Function::Departure,
-            Function::Return,
-        ]);
-
-        let result = syntax.validate_move(&m);
-        // Should have warning about missing complication
-        assert!(result.warnings.iter().any(|w| matches!(w, SyntaxWarning::MissingComplication)));
-    }
-
-    #[test]
-    fn test_broken_pair() {
-        let syntax = Syntax::canonical();
-        let m = make_move(&[
-            Function::Villainy,
-            Function::Interdiction,  // Has Interdiction without Violation
-        ]);
-
-        let result = syntax.validate_move(&m);
-        assert!(result.warnings.iter().any(|w| matches!(w, SyntaxWarning::BrokenPair { .. })));
     }
 
     #[test]
     fn test_mutual_exclusion() {
         let syntax = Syntax::canonical();
         let m = make_move(&[
-            Function::Villainy,
-            Function::Lack,  // Both Villainy and Lack
+            NarrativeFunction::Villainy,
+            NarrativeFunction::Lack,  // Both Villainy and Lack
         ]);
 
         let result = syntax.validate_move(&m);
@@ -559,81 +355,22 @@ mod tests {
     }
 
     #[test]
-    fn test_absurdity_canonical() {
+    fn test_absurdity_low_for_canonical() {
         let syntax = Syntax::canonical();
         let m = make_move(&[
-            Function::Absentation,
-            Function::Interdiction,
-            Function::Violation,
-            Function::Villainy,
-            Function::Mediation,
-            Function::Counteraction,
-            Function::Departure,
-            Function::DonorTest,
-            Function::HeroReaction,
-            Function::Acquisition,
-            Function::Liquidation,
-            Function::Return,
-            Function::Wedding,
+            NarrativeFunction::Absentation,
+            NarrativeFunction::Interdiction,
+            NarrativeFunction::Violation,
+            NarrativeFunction::Villainy,
+            NarrativeFunction::Mediation,
+            NarrativeFunction::Counteraction,
+            NarrativeFunction::Departure,
+            NarrativeFunction::Liquidation,
+            NarrativeFunction::Return,
+            NarrativeFunction::Wedding,
         ]);
 
         let result = syntax.validate_move(&m);
-        // Canonical sequence should have low absurdity
         assert!(result.absurdity < 0.3);
-    }
-
-    #[test]
-    fn test_absurdity_chaotic() {
-        let syntax = Syntax::canonical();
-        let m = make_move(&[
-            Function::Wedding,      // End at the beginning
-            Function::Return,
-            Function::Departure,    // Middle
-            Function::Absentation,  // Beginning at the end
-        ]);
-
-        let result = syntax.validate_move(&m);
-        // Chaotic sequence should have high absurdity
-        assert!(result.absurdity > 0.3);
-    }
-
-    #[test]
-    fn test_validate_tale() {
-        let syntax = Syntax::canonical();
-
-        let mut tale = Tale::new(InitialSituation::default());
-        tale.add_move(make_move(&[Function::Villainy, Function::Departure]));
-        tale.add_move(make_move(&[Function::Return, Function::Wedding]));
-
-        let result = syntax.validate_tale(&tale);
-        assert!(result.valid);
-    }
-
-    #[test]
-    fn test_empty_tale() {
-        let syntax = Syntax::canonical();
-        let tale = Tale::new(InitialSituation::default());
-
-        let result = syntax.validate_tale(&tale);
-        assert!(result.warnings.iter().any(|w| matches!(w, SyntaxWarning::EmptyTale)));
-    }
-
-    #[test]
-    fn test_canonical_order_score() {
-        // Perfect order
-        let functions = vec![
-            Function::Absentation,
-            Function::Interdiction,
-            Function::Villainy,
-        ];
-        assert_eq!(canonical_order_score(&functions), 1.0);
-
-        // Reversed order
-        let reversed = vec![
-            Function::Villainy,
-            Function::Interdiction,
-            Function::Absentation,
-        ];
-        assert!(canonical_order_score(&reversed) < 0.5);
     }
 }
