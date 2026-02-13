@@ -1,12 +1,13 @@
 [workspace]
 resolver = "2"
-members = ["cli/fableforge", "crates/fableforge-core"]
+members = ["cli/fableforge", "crates/fableforge-core", "crates/fableforge-llm"]
 
 default-members = ["cli/fableforge"]
 
 [workspace.dependencies]
 # fableforge
 fableforge-core = { path = "crates/fableforge-core" }
+fableforge-llm = { path = "crates/fableforge-llm" }
 
 # core
 tracing = "0.1"

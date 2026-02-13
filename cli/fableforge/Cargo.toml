@@ -15,7 +15,8 @@ tokio = { workspace = true, features = ["full"] }
 anyhow.workspace = true
 
 # cli
-clap = { workspace = true, features = ["derive"] }
+clap = { workspace = true, features = ["derive", "env"] }
 
 # project
 fableforge-core.workspace = true
+fableforge-llm.workspace = true
