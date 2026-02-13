@@ -1,12 +1,28 @@
-//! Claude AI API client.
+//! LLM client trait and Claude AI implementation.
 
 use std::time::Duration;
 
+use async_trait::async_trait;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tracing::{debug, instrument, warn};
 
 use crate::error::LlmError;
+
+/// Trait for LLM clients.
+///
+/// This trait abstracts over different LLM providers (Claude, OpenAI, Ollama, etc.)
+/// and allows for easy mocking in tests.
+#[async_trait]
+pub trait LlmClient: Send + Sync {
+    /// Send a prompt and get a text response.
+    async fn complete(&self, prompt: &str) -> Result<String, LlmError>;
+
+    /// Send a prompt and parse response as JSON.
+    async fn complete_json<T>(&self, prompt: &str) -> Result<T, LlmError>
+    where
+        T: DeserializeOwned + Send;
+}
 
 /// Default Claude model.
 const DEFAULT_MODEL: &str = "claude-sonnet-4-20250514";
@@ -294,6 +310,20 @@ impl ClaudeClient {
     }
 }
 
+#[async_trait]
+impl LlmClient for ClaudeClient {
+    async fn complete(&self, prompt: &str) -> Result<String, LlmError> {
+        ClaudeClient::complete(self, prompt).await
+    }
+
+    async fn complete_json<T>(&self, prompt: &str) -> Result<T, LlmError>
+    where
+        T: DeserializeOwned + Send,
+    {
+        ClaudeClient::complete_json(self, prompt).await
+    }
+}
+
 /// Extract JSON from text that may contain markdown code blocks.
 fn extract_json(text: &str) -> Option<&str> {
     // Look for ```json ... ``` blocks
@@ -374,6 +404,81 @@ struct ApiErrorDetail {
     message: String,
 }
 
+/// Mock LLM client for testing.
+///
+/// Returns predefined responses for prompts.
+#[derive(Debug, Clone, Default)]
+pub struct MockClient {
+    /// Response to return for text completions.
+    pub text_response: Option<String>,
+    /// Response to return for JSON completions.
+    pub json_response: Option<String>,
+    /// Error message to return instead of response.
+    pub error_message: Option<String>,
+}
+
+impl MockClient {
+    /// Create a new mock client.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the text response.
+    pub fn with_text(mut self, response: impl Into<String>) -> Self {
+        self.text_response = Some(response.into());
+        self
+    }
+
+    /// Set the JSON response.
+    pub fn with_json(mut self, response: impl Into<String>) -> Self {
+        self.json_response = Some(response.into());
+        self
+    }
+
+    /// Set an error message to return.
+    pub fn with_error(mut self, message: impl Into<String>) -> Self {
+        self.error_message = Some(message.into());
+        self
+    }
+}
+
+#[async_trait]
+impl LlmClient for MockClient {
+    async fn complete(&self, _prompt: &str) -> Result<String, LlmError> {
+        if let Some(ref msg) = self.error_message {
+            return Err(LlmError::Api {
+                message: msg.clone(),
+                status: None,
+            });
+        }
+        self.text_response
+            .clone()
+            .ok_or_else(|| LlmError::Api {
+                message: "MockClient: no text response configured".to_string(),
+                status: None,
+            })
+    }
+
+    async fn complete_json<T>(&self, _prompt: &str) -> Result<T, LlmError>
+    where
+        T: DeserializeOwned + Send,
+    {
+        if let Some(ref msg) = self.error_message {
+            return Err(LlmError::Api {
+                message: msg.clone(),
+                status: None,
+            });
+        }
+        let json = self.json_response.as_ref().ok_or_else(|| LlmError::Api {
+            message: "MockClient: no JSON response configured".to_string(),
+            status: None,
+        })?;
+        serde_json::from_str(json).map_err(|_| LlmError::InvalidJsonResponse {
+            text: json.clone(),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -445,5 +550,32 @@ mod tests {
 
         // attempt 2: 10s * 2^2 = 40s, but capped at 30s
         assert_eq!(config.delay_for_attempt(2), Duration::from_secs(30));
+    }
+
+    #[tokio::test]
+    async fn test_mock_client_text_response() {
+        let client = MockClient::new().with_text("Hello, world!");
+        let response = client.complete("test prompt").await.unwrap();
+        assert_eq!(response, "Hello, world!");
+    }
+
+    #[tokio::test]
+    async fn test_mock_client_json_response() {
+        let client = MockClient::new().with_json(r#"{"name": "test"}"#);
+
+        #[derive(Debug, Deserialize, PartialEq)]
+        struct Response {
+            name: String,
+        }
+
+        let response: Response = client.complete_json("test prompt").await.unwrap();
+        assert_eq!(response.name, "test");
+    }
+
+    #[tokio::test]
+    async fn test_mock_client_error() {
+        let client = MockClient::new().with_error("simulated error");
+        let result = client.complete("test").await;
+        assert!(result.is_err());
     }
 }

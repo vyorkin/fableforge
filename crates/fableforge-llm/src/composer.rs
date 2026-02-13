@@ -1,26 +1,28 @@
 //! Story composer — orchestrates the generation process.
 
+use std::sync::Arc;
+
 use tracing::{debug, info, instrument};
 
 use fableforge_core::Tale;
 
-use crate::client::ClaudeClient;
+use crate::client::LlmClient;
 use crate::context::{CharacterResponse, GeneratedStory, TaleContext};
 use crate::episode::{Episode, EpisodeKind};
 use crate::error::LlmError;
 use crate::prompt::{PromptBuilder, StyleConfig};
 
 /// Story composer that orchestrates tale generation.
-pub struct StoryComposer {
-    client: ClaudeClient,
+pub struct StoryComposer<C: LlmClient = crate::client::ClaudeClient> {
+    client: Arc<C>,
     prompt_builder: PromptBuilder,
 }
 
-impl StoryComposer {
+impl<C: LlmClient> StoryComposer<C> {
     /// Create a new composer with client and style configuration.
-    pub fn new(client: ClaudeClient, style: StyleConfig) -> Self {
+    pub fn new(client: C, style: StyleConfig) -> Self {
         Self {
-            client,
+            client: Arc::new(client),
             prompt_builder: PromptBuilder::new(style),
         }
     }
