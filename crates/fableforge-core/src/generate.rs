@@ -13,7 +13,7 @@ use thiserror::Error;
 use crate::dramatis::{Persona, Sphere};
 use crate::function::{NarrativeFunction, NarrativeFunctionInstance, Phase};
 use crate::syntax::Syntax;
-use crate::tale::{Moment, Move, Tale};
+use crate::tale::{InitialSituation, Moment, Move, Setting, Tale};
 
 /// Generator of morphological structures (генератор морфологических структур).
 pub trait Generator {
@@ -37,6 +37,8 @@ pub struct GenConfig {
     pub move_count: Range<usize>,
     /// Random seed (for reproducibility).
     pub seed: Option<u64>,
+    /// Include initial situation (начальная ситуация).
+    pub include_initial: bool,
 }
 
 impl GenConfig {
@@ -48,6 +50,7 @@ impl GenConfig {
             max_absurdity: 0.3,
             move_count: 1..3,
             seed: None,
+            include_initial: true,
         }
     }
 
@@ -69,6 +72,13 @@ impl GenConfig {
     #[must_use]
     pub fn with_seed(mut self, seed: u64) -> Self {
         self.seed = Some(seed);
+        self
+    }
+
+    /// Include or exclude initial situation.
+    #[must_use]
+    pub fn with_initial(mut self, include: bool) -> Self {
+        self.include_initial = include;
         self
     }
 }
@@ -217,6 +227,45 @@ impl RandomGen {
 
         personae
     }
+
+    /// Generate initial situation (начальная ситуация).
+    fn generate_initial_situation(&mut self) -> InitialSituation {
+        // Propp's typical initial situation elements
+        const TIMES: &[&str] = &[
+            "давным-давно",
+            "в стародавние времена",
+            "в некотором царстве",
+            "однажды",
+            "в прежние времена",
+        ];
+
+        const FAMILY_CONTEXTS: &[&str] = &[
+            "жили-были старик со старухой",
+            "жил-был царь с царицей",
+            "в одной деревне жила бедная вдова",
+            "у одного купца было три сына",
+            "жил-был мужик с женой",
+            "в тридевятом царстве жил король",
+        ];
+
+        const PROSPERITY_STATES: &[&str] = &[
+            "и жили они в достатке",
+            "но были они бедны",
+            "и было у них всего вдоволь",
+            "и не знали они горя",
+            "но счастья им не хватало",
+        ];
+
+        let time = TIMES[self.rng.gen_range(0..TIMES.len())].to_string();
+        let family = FAMILY_CONTEXTS[self.rng.gen_range(0..FAMILY_CONTEXTS.len())];
+        let prosperity = PROSPERITY_STATES[self.rng.gen_range(0..PROSPERITY_STATES.len())];
+
+        let context = format!("{}, {}", family, prosperity);
+
+        InitialSituation::new()
+            .with_setting(Setting::new().time(time))
+            .with_context(context)
+    }
 }
 
 impl Default for RandomGen {
@@ -232,7 +281,14 @@ impl Generator for RandomGen {
         }
 
         let personae = self.generate_personae();
+        let initial = if config.include_initial {
+            Some(self.generate_initial_situation())
+        } else {
+            None
+        };
+
         let mut tale = Tale {
+            initial,
             personae,
             ..Default::default()
         };
@@ -496,5 +552,30 @@ mod tests {
 
         let tale = generator.generate(&config).unwrap();
         assert!(!tale.moves.is_empty());
+    }
+
+    #[test]
+    fn test_initial_situation_generated() {
+        let mut generator = RandomGen::with_seed(42);
+        let config = GenConfig::new().with_move_count(1..2);
+
+        let tale = generator.generate(&config).unwrap();
+        assert!(tale.initial.is_some());
+
+        let initial = tale.initial.unwrap();
+        assert!(initial.setting.is_some());
+        assert!(initial.context.is_some());
+        assert!(initial.setting.unwrap().time.is_some());
+    }
+
+    #[test]
+    fn test_initial_situation_can_be_disabled() {
+        let mut generator = RandomGen::with_seed(42);
+        let config = GenConfig::new()
+            .with_move_count(1..2)
+            .with_initial(false);
+
+        let tale = generator.generate(&config).unwrap();
+        assert!(tale.initial.is_none());
     }
 }

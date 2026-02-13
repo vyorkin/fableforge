@@ -237,6 +237,23 @@ fn print_structure(tale: &fableforge_core::Tale) {
 
     println!("\n--- Морфологическая структура ---\n");
 
+    // Начальная ситуация
+    if let Some(ref initial) = tale.initial {
+        println!("Начальная ситуация:");
+        if let Some(ref setting) = initial.setting {
+            if let Some(ref time) = setting.time {
+                println!("  Время: {}", time);
+            }
+            if let Some(ref place) = setting.place {
+                println!("  Место: {}", place);
+            }
+        }
+        if let Some(ref context) = initial.context {
+            println!("  Контекст: {}", context);
+        }
+        println!();
+    }
+
     // Персонажи
     println!("Персонажи:");
     for persona in &tale.personae {
