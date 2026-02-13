@@ -24,6 +24,7 @@ pub mod dramatis;
 pub mod formula;
 pub mod function;
 pub mod generate;
+pub mod subtype;
 pub mod syntax;
 pub mod tale;
 
@@ -43,5 +44,6 @@ pub use dramatis::{Attributes, Persona, PersonaId, Sphere};
 pub use formula::{Formula, FormulaElement, ParseError};
 pub use function::{NarrativeFunction, NarrativeFunctionInstance, Phase};
 pub use generate::{GenConfig, GenError, Generator, RandomGen, Template, TemplateElement, TemplateGen};
+pub use subtype::{subtype, subtype_count, subtypes, SubtypeInfo};
 pub use syntax::{Rule, Syntax, SyntaxError, SyntaxWarning, ValidationResult};
 pub use tale::{InitialSituation, Moment, Move, MoveRelation, Setting, Tale};

@@ -470,6 +470,30 @@ impl NarrativeFunctionInstance {
         }
         s
     }
+
+    /// Get detailed description including subtype.
+    ///
+    /// Returns a tuple of (function name, optional subtype description).
+    #[must_use]
+    pub fn description(&self, lang: Lang) -> (String, Option<String>) {
+        let name = self.function.name(lang).to_string();
+        let subtype_desc = self.subtype.and_then(|idx| {
+            crate::subtype::subtype(self.function, idx).map(|info| info.name(lang).to_string())
+        });
+        (name, subtype_desc)
+    }
+
+    /// Get full description as a single string.
+    ///
+    /// Format: "Function name — subtype description" or just "Function name".
+    #[must_use]
+    pub fn full_description(&self, lang: Lang) -> String {
+        let (name, subtype_desc) = self.description(lang);
+        match subtype_desc {
+            Some(desc) => format!("{} — {}", name, desc),
+            None => name,
+        }
+    }
 }
 
 impl From<NarrativeFunction> for NarrativeFunctionInstance {
@@ -593,5 +617,31 @@ mod tests {
     fn test_phase_names() {
         assert_eq!(Phase::Preparation.name(Lang::En), "Preparation");
         assert_eq!(Phase::Preparation.name(Lang::Ru), "Подготовительная часть");
+    }
+
+    #[test]
+    fn test_function_instance_description() {
+        let f = NarrativeFunctionInstance::new(NarrativeFunction::Villainy);
+        let (name, subtype) = f.description(Lang::Ru);
+        assert_eq!(name, "Вредительство");
+        assert!(subtype.is_none());
+    }
+
+    #[test]
+    fn test_function_instance_description_with_subtype() {
+        let f = NarrativeFunctionInstance::with_subtype(NarrativeFunction::Villainy, 1);
+        let (name, subtype) = f.description(Lang::Ru);
+        assert_eq!(name, "Вредительство");
+        assert_eq!(subtype, Some("Похищение человека".to_string()));
+    }
+
+    #[test]
+    fn test_function_instance_full_description() {
+        let f1 = NarrativeFunctionInstance::new(NarrativeFunction::DonorTest);
+        assert_eq!(f1.full_description(Lang::Ru), "Испытание дарителя");
+
+        let f2 = NarrativeFunctionInstance::with_subtype(NarrativeFunction::DonorTest, 8);
+        assert_eq!(f2.full_description(Lang::Ru), "Испытание дарителя — Загадка");
+        assert_eq!(f2.full_description(Lang::En), "Donor Test — Riddle");
     }
 }

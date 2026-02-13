@@ -199,8 +199,10 @@ impl PromptBuilder {
 
         let mut moments_section = String::new();
         for moment in &episode.moments {
-            let func_desc = moment.function.function.name(self.lang);
-            moments_section.push_str(&format!("- {}\n", func_desc));
+            // Use full_description which includes subtype details (e.g., "Вредительство — Похищение человека")
+            let func_desc = moment.function.full_description(self.lang);
+            let symbol = moment.function.to_notation();
+            moments_section.push_str(&format!("- {} ({})\n", func_desc, symbol));
 
             if let Some(agent_id) = moment.agent {
                 let agent_name = ctx.character_name(agent_id);

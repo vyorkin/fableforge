@@ -280,8 +280,8 @@ fn print_structure(tale: &fableforge_core::Tale) {
             }
 
             let symbol = moment.function.to_notation();
-            let name = moment.function.function.name(Lang::Ru);
-            print!("      {} — {}", symbol, name);
+            let desc = moment.function.full_description(Lang::Ru);
+            print!("      {} — {}", symbol, desc);
 
             if let Some(agent) = moment.agent {
                 print!(" (агент: {})", agent.0);

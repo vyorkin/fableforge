@@ -12,6 +12,7 @@ use thiserror::Error;
 
 use crate::dramatis::{Persona, Sphere};
 use crate::function::{NarrativeFunction, NarrativeFunctionInstance, Phase};
+use crate::subtype::subtype_count;
 use crate::syntax::Syntax;
 use crate::tale::{InitialSituation, Moment, Move, Setting, Tale};
 
@@ -39,6 +40,8 @@ pub struct GenConfig {
     pub seed: Option<u64>,
     /// Include initial situation (начальная ситуация).
     pub include_initial: bool,
+    /// Generate subtypes for functions (подвиды функций).
+    pub include_subtypes: bool,
 }
 
 impl GenConfig {
@@ -51,6 +54,7 @@ impl GenConfig {
             move_count: 1..3,
             seed: None,
             include_initial: true,
+            include_subtypes: true,
         }
     }
 
@@ -79,6 +83,13 @@ impl GenConfig {
     #[must_use]
     pub fn with_initial(mut self, include: bool) -> Self {
         self.include_initial = include;
+        self
+    }
+
+    /// Include or exclude function subtypes.
+    #[must_use]
+    pub fn with_subtypes(mut self, include: bool) -> Self {
+        self.include_subtypes = include;
         self
     }
 }
@@ -123,7 +134,7 @@ impl RandomGen {
     }
 
     /// Generate a random move following canonical structure.
-    fn generate_move(&mut self, is_first: bool) -> Move {
+    fn generate_move(&mut self, is_first: bool, include_subtypes: bool) -> Move {
         let mut m = if is_first {
             Move::new()
         } else {
@@ -191,12 +202,30 @@ impl RandomGen {
             functions.push(NarrativeFunction::Wedding);
         }
 
-        // Add moments
+        // Add moments with optional subtypes
         for func in functions {
-            m.moments.push(Moment::new(NarrativeFunctionInstance::new(func)));
+            let instance = self.create_function_instance(func, include_subtypes);
+            m.moments.push(Moment::new(instance));
         }
 
         m
+    }
+
+    /// Create a function instance, optionally with a random subtype.
+    fn create_function_instance(
+        &mut self,
+        func: NarrativeFunction,
+        include_subtype: bool,
+    ) -> NarrativeFunctionInstance {
+        if include_subtype {
+            let count = subtype_count(func);
+            if count > 0 {
+                // Randomly select a subtype (1-based index)
+                let subtype = self.rng.gen_range(1..=count as u8);
+                return NarrativeFunctionInstance::with_subtype(func, subtype);
+            }
+        }
+        NarrativeFunctionInstance::new(func)
     }
 
     /// Generate basic personae structure.
@@ -304,7 +333,7 @@ impl Generator for RandomGen {
         // Generate moves
         let move_count = self.rng.gen_range(config.move_count.clone());
         for i in 0..move_count {
-            let mut m = self.generate_move(i == 0);
+            let mut m = self.generate_move(i == 0, config.include_subtypes);
 
             // Assign agents based on function phase
             for moment in &mut m.moments {
