@@ -1,18 +1,17 @@
-//! FableForge CLI — генератор сказок на основе морфологии Проппа.
+//! FableForge CLI — Propp-morphology–based fairy tale generator.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::{Args, Parser, Subcommand};
-use tracing::{info, Level};
-use tracing_subscriber::fmt::format::FmtSpan;
-
 use fableforge_core::{GenConfig, Generator, RandomGen};
 use fableforge_llm::{ClaudeClient, StoryComposer, StyleConfig};
+use tracing::{Level, info};
+use tracing_subscriber::fmt::format::FmtSpan;
 
 #[derive(Parser)]
 #[command(name = "fableforge")]
-#[command(about = "Генератор сказок на основе морфологии Проппа", long_about = None)]
+#[command(about = "Propp-morphology–based fairy tale generator", long_about = None)]
 struct Cli {
-    /// Уровень логирования (trace, debug, info, warn, error)
+    /// Log level (trace, debug, info, warn, error)
     #[arg(short, long, default_value = "info")]
     log_level: Level,
 
@@ -22,16 +21,16 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Сгенерировать сказку
+    /// Generate a fairy tale
     Generate(GenerateArgs),
 
-    /// Показать морфологическую структуру сказки
+    /// Show the morphological structure of a fairy tale
     Structure {
-        /// Количество ходов
+        /// Number of moves
         #[arg(short, long, default_value = "1")]
         moves: usize,
 
-        /// Seed для воспроизводимой генерации
+        /// Seed for reproducible generation
         #[arg(long)]
         seed: Option<u64>,
     },
@@ -39,43 +38,43 @@ enum Commands {
 
 #[derive(Args)]
 struct GenerateArgs {
-    /// Жанр (детектив, триллер, драма, фэнтези, хоррор и т.д.)
+    /// Genre (detective, thriller, drama, fantasy, horror, etc.)
     #[arg(short, long)]
     genre: Option<String>,
 
-    /// Сеттинг (современный город, средневековье, космос и т.д.)
+    /// Setting (modern city, medieval, space, etc.)
     #[arg(short, long)]
     setting: Option<String>,
 
-    /// Тон повествования (мрачный, ироничный, лиричный и т.д.)
+    /// Narrative tone (dark, ironic, lyrical, etc.)
     #[arg(short, long)]
     tone: Option<String>,
 
-    /// Эпоха (современность, XIX век, будущее и т.д.)
+    /// Era (modern times, 19th century, future, etc.)
     #[arg(short, long)]
     era: Option<String>,
 
-    /// Дополнительные указания по стилю
+    /// Additional style instructions
     #[arg(short, long)]
     custom: Option<String>,
 
-    /// Количество ходов (сюжетных арок)
+    /// Number of moves (plot arcs)
     #[arg(short, long, default_value = "1")]
     moves: usize,
 
-    /// Seed для воспроизводимой генерации структуры
+    /// Seed for reproducible structure generation
     #[arg(long)]
     seed: Option<u64>,
 
-    /// Модель Claude (claude-sonnet-4-20250514, claude-opus-4-20250514 и т.д.)
+    /// Claude model (claude-sonnet-4-20250514, claude-opus-4-20250514, etc.)
     #[arg(short = 'M', long, default_value = "claude-sonnet-4-20250514")]
     model: String,
 
-    /// API ключ Anthropic (или переменная окружения ANTHROPIC_API_KEY)
+    /// Anthropic API key (or ANTHROPIC_API_KEY environment variable)
     #[arg(long, env = "ANTHROPIC_API_KEY")]
     api_key: Option<String>,
 
-    /// Показать только структуру сказки без генерации текста
+    /// Show only the structure without generating full text
     #[arg(long)]
     structure_only: bool,
 }
@@ -84,7 +83,7 @@ struct GenerateArgs {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Настройка логирования
+    // Logging setup
     tracing_subscriber::fmt()
         .with_max_level(cli.log_level)
         .with_span_events(FmtSpan::CLOSE)
@@ -116,8 +115,9 @@ async fn generate_tale(args: GenerateArgs) -> Result<()> {
         api_key,
         structure_only,
     } = args;
-    // Генерация морфологической структуры
-    info!("Генерация морфологической структуры...");
+
+    // Morphological structure generation
+    info!("Generating morphological structure...");
 
     let mut gen_config = GenConfig::new()
         .with_move_count(moves..moves + 1)
@@ -130,33 +130,33 @@ async fn generate_tale(args: GenerateArgs) -> Result<()> {
     let mut generator = RandomGen::new();
     let tale = generator
         .generate(&gen_config)
-        .context("Не удалось сгенерировать структуру сказки")?;
+        .context("Failed to generate fairy-tale structure")?;
 
     info!(
-        "Структура: {} ходов, {} персонажей",
+        "Structure: {} moves, {} characters",
         tale.moves.len(),
         tale.personae.len()
     );
 
-    // Показываем структуру
+    // Print structure
     print_structure(&tale);
 
     if structure_only {
         return Ok(());
     }
 
-    // Проверка API ключа
+    // API key validation
     let api_key = api_key.ok_or_else(|| {
         anyhow::anyhow!(
-            "API ключ не указан. Используйте --api-key или установите ANTHROPIC_API_KEY"
+            "API key is not provided. Use --api-key or set ANTHROPIC_API_KEY"
         )
     })?;
 
     if api_key.is_empty() {
-        bail!("API ключ пустой");
+        bail!("API key is empty");
     }
 
-    // Настройка стиля
+    // Style configuration
     let mut style = StyleConfig::new();
     if let Some(g) = genre {
         style = style.genre(g);
@@ -174,8 +174,8 @@ async fn generate_tale(args: GenerateArgs) -> Result<()> {
         style = style.custom_instructions(c);
     }
 
-    // Создание клиента и генерация
-    info!("Генерация текста с помощью {}...", model);
+    // LLM client and text generation
+    info!("Generating text with {}...", model);
 
     let client = ClaudeClient::new(api_key).with_model(model);
     let composer = StoryComposer::new(client, style);
@@ -183,15 +183,15 @@ async fn generate_tale(args: GenerateArgs) -> Result<()> {
     let story = composer
         .compose(&tale)
         .await
-        .context("Не удалось сгенерировать текст сказки")?;
+        .context("Failed to generate fairy-tale text")?;
 
-    // Вывод результата
+    // Output
     println!("\n{}", "=".repeat(60));
-    println!("СКАЗКА");
+    println!("FAIRY TALE");
     println!("{}\n", "=".repeat(60));
 
-    // Персонажи
-    println!("ПЕРСОНАЖИ:");
+    // Characters
+    println!("CHARACTERS:");
     for char in &story.characters {
         let epithet = char.epithet.as_deref().unwrap_or("");
         let appearance = char.appearance.as_deref().unwrap_or("");
@@ -201,7 +201,7 @@ async fn generate_tale(args: GenerateArgs) -> Result<()> {
         }
     }
 
-    println!("\nМЕСТО ДЕЙСТВИЯ:");
+    println!("\nSETTING:");
     println!("  {}", story.setting);
 
     println!("\n{}", "-".repeat(60));
@@ -225,7 +225,7 @@ fn show_structure(moves: usize, seed: Option<u64>) -> Result<()> {
     let mut generator = RandomGen::new();
     let tale = generator
         .generate(&gen_config)
-        .context("Не удалось сгенерировать структуру")?;
+        .context("Failed to generate structure")?;
 
     print_structure(&tale);
 
@@ -235,42 +235,43 @@ fn show_structure(moves: usize, seed: Option<u64>) -> Result<()> {
 fn print_structure(tale: &fableforge_core::Tale) {
     use fableforge_core::Lang;
 
-    println!("\n--- Морфологическая структура ---\n");
+    println!("\n--- Morphological structure ---\n");
 
-    // Начальная ситуация
+    // Initial situation
     if let Some(ref initial) = tale.initial {
-        println!("Начальная ситуация:");
+        println!("Initial situation:");
         if let Some(ref setting) = initial.setting {
             if let Some(ref time) = setting.time {
-                println!("  Время: {}", time);
+                println!("  Time: {}", time);
             }
             if let Some(ref place) = setting.place {
-                println!("  Место: {}", place);
+                println!("  Place: {}", place);
             }
         }
         if let Some(ref context) = initial.context {
-            println!("  Контекст: {}", context);
+            println!("  Context: {}", context);
         }
         println!();
     }
 
-    // Персонажи
-    println!("Персонажи:");
+    // Characters
+    println!("Characters:");
     for persona in &tale.personae {
-        let spheres: Vec<_> = persona
-            .spheres
-            .iter()
-            .map(|s| s.name(Lang::Ru))
-            .collect();
-        println!("  [{}] {}", persona.id.0, spheres.join(", "));
+        let spheres: Vec<_> =
+            persona.spheres.iter().map(|s| s.name(Lang::Ru)).collect();
+        println!(
+            "  [{}] {}",
+            persona.id.0,
+            spheres.join(", ")
+        );
     }
 
-    // Ходы
-    println!("\nХоды:");
+    // Moves
+    println!("\nMoves:");
     for (i, mov) in tale.moves.iter().enumerate() {
-        println!("\n  Ход {}:", i + 1);
+        println!("\n  Move {}:", i + 1);
 
-        // Группируем по фазам
+        // Group by phases
         let mut current_phase = None;
         for moment in &mov.moments {
             let phase = moment.function.function.phase();
@@ -284,10 +285,10 @@ fn print_structure(tale: &fableforge_core::Tale) {
             print!("      {} — {}", symbol, desc);
 
             if let Some(agent) = moment.agent {
-                print!(" (агент: {})", agent.0);
+                print!(" (agent: {})", agent.0);
             }
             if let Some(patient) = moment.patient {
-                print!(" (пациент: {})", patient.0);
+                print!(" (patient: {})", patient.0);
             }
             println!();
         }

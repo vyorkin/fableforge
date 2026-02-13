@@ -4,8 +4,7 @@
 
 use fableforge_core::{InitialSituation, Lang, Sphere, Tale};
 
-use crate::context::TaleContext;
-use crate::episode::Episode;
+use crate::{context::TaleContext, episode::Episode};
 
 /// Style configuration for story generation.
 #[derive(Debug, Clone, Default)]
@@ -53,7 +52,10 @@ impl StyleConfig {
     }
 
     /// Set custom instructions.
-    pub fn custom_instructions(mut self, instructions: impl Into<String>) -> Self {
+    pub fn custom_instructions(
+        mut self,
+        instructions: impl Into<String>,
+    ) -> Self {
         self.custom_instructions = Some(instructions.into());
         self
     }
@@ -199,18 +201,28 @@ impl PromptBuilder {
 
         let mut moments_section = String::new();
         for moment in &episode.moments {
-            // Use full_description which includes subtype details (e.g., "Вредительство — Похищение человека")
+            // Use full_description which includes subtype details (e.g.,
+            // "Вредительство — Похищение человека")
             let func_desc = moment.function.full_description(self.lang);
             let symbol = moment.function.to_notation();
-            moments_section.push_str(&format!("- {} ({})\n", func_desc, symbol));
+            moments_section.push_str(&format!(
+                "- {} ({})\n",
+                func_desc, symbol
+            ));
 
             if let Some(agent_id) = moment.agent {
                 let agent_name = ctx.character_name(agent_id);
-                moments_section.push_str(&format!("  Действует: {}\n", agent_name));
+                moments_section.push_str(&format!(
+                    "  Действует: {}\n",
+                    agent_name
+                ));
             }
             if let Some(patient_id) = moment.patient {
                 let patient_name = ctx.character_name(patient_id);
-                moments_section.push_str(&format!("  Объект действия: {}\n", patient_name));
+                moments_section.push_str(&format!(
+                    "  Объект действия: {}\n",
+                    patient_name
+                ));
             }
         }
 
@@ -245,7 +257,10 @@ impl PromptBuilder {
             .map(|c| {
                 let epithet = c.epithet.as_deref().unwrap_or("");
                 let appearance = c.appearance.as_deref().unwrap_or("");
-                format!("- {} ({}): {}", c.name, epithet, appearance)
+                format!(
+                    "- {} ({}): {}",
+                    c.name, epithet, appearance
+                )
             })
             .collect::<Vec<_>>()
             .join("\n")
@@ -299,8 +314,14 @@ mod tests {
             .setting_hint("Москва, 1990-е")
             .tone("мрачный");
 
-        assert_eq!(style.genre, Some("нуар-детектив".to_string()));
-        assert_eq!(style.setting_hint, Some("Москва, 1990-е".to_string()));
+        assert_eq!(
+            style.genre,
+            Some("нуар-детектив".to_string())
+        );
+        assert_eq!(
+            style.setting_hint,
+            Some("Москва, 1990-е".to_string())
+        );
         assert_eq!(style.tone, Some("мрачный".to_string()));
     }
 
