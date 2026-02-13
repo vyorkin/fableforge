@@ -1,0 +1,8 @@
+target/
+.git/
+docker/
+.github/
+*.md
+LICENSE
+.claude/
+.dockerignore
