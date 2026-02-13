@@ -1,8 +1,10 @@
 //! Claude AI API client.
 
+use std::time::Duration;
+
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use tracing::{debug, instrument};
+use tracing::{debug, instrument, warn};
 
 use crate::error::LlmError;
 
@@ -15,12 +17,77 @@ const API_BASE_URL: &str = "https://api.anthropic.com/v1";
 /// Claude API version header.
 const API_VERSION: &str = "2023-06-01";
 
+/// Retry configuration.
+#[derive(Debug, Clone)]
+pub struct RetryConfig {
+    /// Maximum number of retry attempts.
+    pub max_retries: u32,
+    /// Initial delay before first retry.
+    pub initial_delay: Duration,
+    /// Maximum delay between retries.
+    pub max_delay: Duration,
+    /// Multiplier for exponential backoff.
+    pub backoff_factor: f64,
+}
+
+impl Default for RetryConfig {
+    fn default() -> Self {
+        Self {
+            max_retries: 3,
+            initial_delay: Duration::from_secs(1),
+            max_delay: Duration::from_secs(60),
+            backoff_factor: 2.0,
+        }
+    }
+}
+
+impl RetryConfig {
+    /// Create a new retry config.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set maximum retries.
+    pub fn max_retries(mut self, n: u32) -> Self {
+        self.max_retries = n;
+        self
+    }
+
+    /// Set initial delay.
+    pub fn initial_delay(mut self, delay: Duration) -> Self {
+        self.initial_delay = delay;
+        self
+    }
+
+    /// Set maximum delay.
+    pub fn max_delay(mut self, delay: Duration) -> Self {
+        self.max_delay = delay;
+        self
+    }
+
+    /// Disable retries.
+    pub fn no_retry() -> Self {
+        Self {
+            max_retries: 0,
+            ..Self::default()
+        }
+    }
+
+    /// Calculate delay for a given attempt (0-indexed).
+    fn delay_for_attempt(&self, attempt: u32) -> Duration {
+        let delay_secs = self.initial_delay.as_secs_f64() * self.backoff_factor.powi(attempt as i32);
+        let delay = Duration::from_secs_f64(delay_secs);
+        delay.min(self.max_delay)
+    }
+}
+
 /// Client for Claude AI API.
 pub struct ClaudeClient {
     api_key: String,
     model: String,
     http: reqwest::Client,
     max_tokens: u32,
+    retry: RetryConfig,
 }
 
 impl ClaudeClient {
@@ -31,6 +98,7 @@ impl ClaudeClient {
             model: DEFAULT_MODEL.to_string(),
             http: reqwest::Client::new(),
             max_tokens: 4096,
+            retry: RetryConfig::default(),
         }
     }
 
@@ -43,6 +111,12 @@ impl ClaudeClient {
     /// Set max tokens for responses.
     pub fn with_max_tokens(mut self, max_tokens: u32) -> Self {
         self.max_tokens = max_tokens;
+        self
+    }
+
+    /// Set retry configuration.
+    pub fn with_retry(mut self, config: RetryConfig) -> Self {
+        self.retry = config;
         self
     }
 
@@ -78,8 +152,49 @@ impl ClaudeClient {
         })
     }
 
-    /// Send request to Claude API.
+    /// Send request to Claude API with retry logic.
     async fn send_request(&self, request: &MessagesRequest<'_>) -> Result<MessagesResponse, LlmError> {
+        let mut last_error: Option<LlmError> = None;
+
+        for attempt in 0..=self.retry.max_retries {
+            if attempt > 0 {
+                let delay = last_error
+                    .as_ref()
+                    .and_then(|e| {
+                        if let LlmError::RateLimit { retry_after: Some(secs) } = e {
+                            Some(Duration::from_secs(*secs))
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap_or_else(|| self.retry.delay_for_attempt(attempt - 1));
+
+                warn!(
+                    attempt = attempt,
+                    delay_secs = delay.as_secs_f64(),
+                    "Retrying request after error"
+                );
+                tokio::time::sleep(delay).await;
+            }
+
+            match self.send_request_once(request).await {
+                Ok(response) => return Ok(response),
+                Err(e) if e.is_retryable() && attempt < self.retry.max_retries => {
+                    debug!(attempt = attempt, error = %e, "Request failed, will retry");
+                    last_error = Some(e);
+                }
+                Err(e) => return Err(e),
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| LlmError::Api {
+            message: "Unknown error after retries".to_string(),
+            status: None,
+        }))
+    }
+
+    /// Send a single request without retry.
+    async fn send_request_once(&self, request: &MessagesRequest<'_>) -> Result<MessagesResponse, LlmError> {
         let mut headers = HeaderMap::new();
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
         headers.insert(
@@ -109,8 +224,24 @@ impl ClaudeClient {
             let body = response.json::<MessagesResponse>().await?;
             Ok(body)
         } else {
+            // Try to extract retry-after header
+            let retry_after = response
+                .headers()
+                .get("retry-after")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|s| s.parse::<u64>().ok());
+
             let error_body = response.text().await.unwrap_or_default();
-            Err(self.parse_error(status.as_u16(), &error_body))
+            let mut error = self.parse_error(status.as_u16(), &error_body);
+
+            // Inject retry-after if we got it from header
+            if let LlmError::RateLimit { retry_after: ref mut ra } = error
+                && ra.is_none()
+            {
+                *ra = retry_after;
+            }
+
+            Err(error)
         }
     }
 
@@ -274,5 +405,45 @@ mod tests {
         {"name": "test"}
         "#;
         assert_eq!(extract_json(text), Some(r#"{"name": "test"}"#));
+    }
+
+    #[test]
+    fn test_retry_config_defaults() {
+        let config = RetryConfig::default();
+        assert_eq!(config.max_retries, 3);
+        assert_eq!(config.initial_delay, Duration::from_secs(1));
+        assert_eq!(config.backoff_factor, 2.0);
+    }
+
+    #[test]
+    fn test_retry_config_no_retry() {
+        let config = RetryConfig::no_retry();
+        assert_eq!(config.max_retries, 0);
+    }
+
+    #[test]
+    fn test_retry_delay_exponential_backoff() {
+        let config = RetryConfig::new()
+            .initial_delay(Duration::from_secs(1))
+            .max_delay(Duration::from_secs(60));
+
+        // attempt 0: 1s * 2^0 = 1s
+        assert_eq!(config.delay_for_attempt(0), Duration::from_secs(1));
+        // attempt 1: 1s * 2^1 = 2s
+        assert_eq!(config.delay_for_attempt(1), Duration::from_secs(2));
+        // attempt 2: 1s * 2^2 = 4s
+        assert_eq!(config.delay_for_attempt(2), Duration::from_secs(4));
+        // attempt 3: 1s * 2^3 = 8s
+        assert_eq!(config.delay_for_attempt(3), Duration::from_secs(8));
+    }
+
+    #[test]
+    fn test_retry_delay_respects_max() {
+        let config = RetryConfig::new()
+            .initial_delay(Duration::from_secs(10))
+            .max_delay(Duration::from_secs(30));
+
+        // attempt 2: 10s * 2^2 = 40s, but capped at 30s
+        assert_eq!(config.delay_for_attempt(2), Duration::from_secs(30));
     }
 }

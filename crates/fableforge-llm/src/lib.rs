@@ -53,7 +53,7 @@ pub mod error;
 pub mod prompt;
 
 // Re-exports for convenience
-pub use client::ClaudeClient;
+pub use client::{ClaudeClient, RetryConfig};
 pub use composer::StoryComposer;
 pub use context::{CharacterResponse, EpisodeResult, GeneratedCharacter, GeneratedStory, TaleContext};
 pub use episode::{Episode, EpisodeKind};
