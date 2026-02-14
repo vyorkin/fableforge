@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["cli/fableforge", "crates/fableforge-core", "crates/fableforge-llm"]
+members = ["cli/fableforge", "crates/fableforge-core", "crates/fableforge-llm", "crates/fableforge-tg"]
 
 default-members = ["cli/fableforge"]
 

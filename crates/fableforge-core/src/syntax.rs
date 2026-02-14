@@ -156,11 +156,17 @@ impl Syntax {
         let mut all_errors = Vec::new();
         let mut all_warnings = Vec::new();
 
-        // Validate each move
+        // Validate each move and its embedded moves
         for m in &t.moves {
             let result = self.validate_move(m);
             all_errors.extend(result.errors);
             all_warnings.extend(result.warnings);
+
+            for em in &m.embedded_moves {
+                let em_result = self.validate_move(em);
+                all_errors.extend(em_result.errors);
+                all_warnings.extend(em_result.warnings);
+            }
         }
 
         // Check for at least one move

@@ -404,6 +404,310 @@ struct ApiErrorDetail {
     message: String,
 }
 
+// ── OpenRouter ──────────────────────────────────────────────
+
+/// Default OpenRouter model.
+const OPENROUTER_DEFAULT_MODEL: &str = "anthropic/claude-sonnet-4";
+
+/// OpenRouter API base URL.
+const OPENROUTER_API_BASE_URL: &str = "https://openrouter.ai/api/v1";
+
+/// Client for OpenRouter API (OpenAI-compatible).
+pub struct OpenRouterClient {
+    api_key: String,
+    model: String,
+    http: reqwest::Client,
+    max_tokens: u32,
+    retry: RetryConfig,
+    app_name: Option<String>,
+}
+
+impl OpenRouterClient {
+    /// Create a new client with the given API key.
+    pub fn new(api_key: impl Into<String>) -> Self {
+        Self {
+            api_key: api_key.into(),
+            model: OPENROUTER_DEFAULT_MODEL.to_string(),
+            http: reqwest::Client::new(),
+            max_tokens: 4096,
+            retry: RetryConfig::default(),
+            app_name: None,
+        }
+    }
+
+    /// Set the model to use (OpenRouter format: `"provider/model"`).
+    pub fn with_model(mut self, model: impl Into<String>) -> Self {
+        self.model = model.into();
+        self
+    }
+
+    /// Set max tokens for responses.
+    pub fn with_max_tokens(mut self, max_tokens: u32) -> Self {
+        self.max_tokens = max_tokens;
+        self
+    }
+
+    /// Set retry configuration.
+    pub fn with_retry(mut self, config: RetryConfig) -> Self {
+        self.retry = config;
+        self
+    }
+
+    /// Set application name (sent as `X-Title` header for OpenRouter ranking).
+    pub fn with_app_name(mut self, name: impl Into<String>) -> Self {
+        self.app_name = Some(name.into());
+        self
+    }
+
+    /// Send a prompt and get a text response.
+    #[instrument(skip(self, prompt), fields(model = %self.model))]
+    async fn do_complete(&self, prompt: &str) -> Result<String, LlmError> {
+        let request = ChatCompletionRequest {
+            model: &self.model,
+            max_tokens: self.max_tokens,
+            messages: vec![ChatMessage {
+                role: "user",
+                content: prompt,
+            }],
+        };
+
+        let response = self.send_request(&request).await?;
+
+        let text = response
+            .choices
+            .into_iter()
+            .next()
+            .map(|c| c.message.content)
+            .unwrap_or_default();
+
+        if text.is_empty() {
+            Err(LlmError::Api {
+                message: "Empty response from API".to_string(),
+                status: None,
+            })
+        } else {
+            Ok(text)
+        }
+    }
+
+    /// Send request with retry logic.
+    async fn send_request(
+        &self,
+        request: &ChatCompletionRequest<'_>,
+    ) -> Result<ChatCompletionResponse, LlmError> {
+        let mut last_error: Option<LlmError> = None;
+
+        for attempt in 0..=self.retry.max_retries {
+            if attempt > 0 {
+                let delay = last_error
+                    .as_ref()
+                    .and_then(|e| {
+                        if let LlmError::RateLimit {
+                            retry_after: Some(secs),
+                        } = e
+                        {
+                            Some(Duration::from_secs(*secs))
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap_or_else(|| self.retry.delay_for_attempt(attempt - 1));
+
+                warn!(
+                    attempt = attempt,
+                    delay_secs = delay.as_secs_f64(),
+                    "Retrying request after error"
+                );
+                tokio::time::sleep(delay).await;
+            }
+
+            match self.send_request_once(request).await {
+                Ok(response) => return Ok(response),
+                Err(e) if e.is_retryable() && attempt < self.retry.max_retries => {
+                    debug!(attempt = attempt, error = %e, "Request failed, will retry");
+                    last_error = Some(e);
+                }
+                Err(e) => return Err(e),
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| LlmError::Api {
+            message: "Unknown error after retries".to_string(),
+            status: None,
+        }))
+    }
+
+    /// Send a single request without retry.
+    async fn send_request_once(
+        &self,
+        request: &ChatCompletionRequest<'_>,
+    ) -> Result<ChatCompletionResponse, LlmError> {
+        let mut headers = HeaderMap::new();
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        headers.insert(
+            reqwest::header::AUTHORIZATION,
+            HeaderValue::from_str(&format!("Bearer {}", self.api_key))
+                .map_err(|_| LlmError::InvalidApiKey)?,
+        );
+        if let Some(ref name) = self.app_name {
+            if let Ok(val) = HeaderValue::from_str(name) {
+                headers.insert("X-Title", val);
+            }
+        }
+
+        let url = format!("{}/chat/completions", OPENROUTER_API_BASE_URL);
+
+        debug!("Sending request to OpenRouter API");
+
+        let response = self
+            .http
+            .post(&url)
+            .headers(headers)
+            .json(request)
+            .send()
+            .await?;
+
+        let status = response.status();
+
+        if status.is_success() {
+            let body = response.json::<ChatCompletionResponse>().await?;
+            Ok(body)
+        } else {
+            let retry_after = response
+                .headers()
+                .get("retry-after")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|s| s.parse::<u64>().ok());
+
+            let error_body = response.text().await.unwrap_or_default();
+            let mut error = self.parse_error(status.as_u16(), &error_body);
+
+            if let LlmError::RateLimit {
+                retry_after: ref mut ra,
+            } = error
+                && ra.is_none()
+            {
+                *ra = retry_after;
+            }
+
+            Err(error)
+        }
+    }
+
+    /// Parse error response from API (OpenAI-compatible format).
+    fn parse_error(&self, status: u16, body: &str) -> LlmError {
+        // OpenRouter/OpenAI error format: {"error": {"message": "...", "type": "..."}}
+        if let Ok(error) = serde_json::from_str::<ApiError>(body) {
+            match error.error.error_type.as_str() {
+                "authentication_error" => return LlmError::InvalidApiKey,
+                "rate_limit_error" => {
+                    return LlmError::RateLimit { retry_after: None };
+                }
+                "invalid_request_error" if error.error.message.contains("model") => {
+                    return LlmError::ModelNotAvailable {
+                        model: self.model.clone(),
+                    };
+                }
+                _ => {}
+            }
+            return LlmError::api(status, error.error.message);
+        }
+
+        // Also try OpenAI-style: {"error": {"message": "...", "type": "..."}}
+        // where "type" may differ — fall through to generic
+        if status == 401 {
+            return LlmError::InvalidApiKey;
+        }
+        if status == 429 {
+            return LlmError::RateLimit { retry_after: None };
+        }
+
+        LlmError::api(status, body.to_string())
+    }
+}
+
+#[async_trait]
+impl LlmClient for OpenRouterClient {
+    async fn complete(&self, prompt: &str) -> Result<String, LlmError> {
+        self.do_complete(prompt).await
+    }
+
+    async fn complete_json<T>(&self, prompt: &str) -> Result<T, LlmError>
+    where
+        T: DeserializeOwned + Send,
+    {
+        let text = self.do_complete(prompt).await?;
+        let json_text = extract_json(&text).unwrap_or(&text);
+
+        serde_json::from_str(json_text).map_err(|e| {
+            debug!("Failed to parse JSON: {}, text: {}", e, json_text);
+            LlmError::InvalidJsonResponse {
+                text: text.clone(),
+            }
+        })
+    }
+}
+
+// ── AnyClient enum dispatch ─────────────────────────────────
+
+/// A provider-agnostic LLM client that dispatches to the concrete implementation.
+pub enum AnyClient {
+    /// Claude API client.
+    Claude(ClaudeClient),
+    /// OpenRouter API client.
+    OpenRouter(OpenRouterClient),
+}
+
+#[async_trait]
+impl LlmClient for AnyClient {
+    async fn complete(&self, prompt: &str) -> Result<String, LlmError> {
+        match self {
+            AnyClient::Claude(c) => c.complete(prompt).await,
+            AnyClient::OpenRouter(c) => c.complete(prompt).await,
+        }
+    }
+
+    async fn complete_json<T>(&self, prompt: &str) -> Result<T, LlmError>
+    where
+        T: DeserializeOwned + Send,
+    {
+        match self {
+            AnyClient::Claude(c) => c.complete_json(prompt).await,
+            AnyClient::OpenRouter(c) => c.complete_json(prompt).await,
+        }
+    }
+}
+
+// ── Chat completion types (OpenAI-compatible) ───────────────
+
+#[derive(Debug, Serialize)]
+struct ChatCompletionRequest<'a> {
+    model: &'a str,
+    max_tokens: u32,
+    messages: Vec<ChatMessage<'a>>,
+}
+
+#[derive(Debug, Serialize)]
+struct ChatMessage<'a> {
+    role: &'a str,
+    content: &'a str,
+}
+
+#[derive(Debug, Deserialize)]
+struct ChatCompletionResponse {
+    choices: Vec<ChatChoice>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ChatChoice {
+    message: ChatChoiceMessage,
+}
+
+#[derive(Debug, Deserialize)]
+struct ChatChoiceMessage {
+    content: String,
+}
+
 /// Mock LLM client for testing.
 ///
 /// Returns predefined responses for prompts.
@@ -577,5 +881,49 @@ mod tests {
         let client = MockClient::new().with_error("simulated error");
         let result = client.complete("test").await;
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_openrouter_request_format() {
+        let request = ChatCompletionRequest {
+            model: "anthropic/claude-sonnet-4",
+            max_tokens: 4096,
+            messages: vec![ChatMessage {
+                role: "user",
+                content: "Hello",
+            }],
+        };
+
+        let json = serde_json::to_value(&request).unwrap();
+        assert_eq!(json["model"], "anthropic/claude-sonnet-4");
+        assert_eq!(json["max_tokens"], 4096);
+        assert_eq!(json["messages"][0]["role"], "user");
+        assert_eq!(json["messages"][0]["content"], "Hello");
+    }
+
+    #[test]
+    fn test_openrouter_response_parse() {
+        let json = r#"{
+            "choices": [{
+                "message": {
+                    "content": "Hello, world!"
+                }
+            }]
+        }"#;
+
+        let response: ChatCompletionResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(response.choices.len(), 1);
+        assert_eq!(response.choices[0].message.content, "Hello, world!");
+    }
+
+    #[test]
+    fn test_openrouter_extract_json() {
+        let text = r#"Here is the JSON:
+```json
+{"characters": [{"name": "Ivan"}]}
+```"#;
+        let extracted = extract_json(text).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(extracted).unwrap();
+        assert_eq!(parsed["characters"][0]["name"], "Ivan");
     }
 }

@@ -14,6 +14,10 @@ pub struct Episode {
     pub kind: EpisodeKind,
     /// Moments included in this episode.
     pub moments: Vec<Moment>,
+    /// Whether this episode uses triplication (утроение).
+    pub triplication: bool,
+    /// Whether this is an embedded (side quest) episode.
+    pub is_embedded: bool,
 }
 
 /// Type of episode.
@@ -33,6 +37,8 @@ impl Episode {
         Self {
             kind: EpisodeKind::CharacterGeneration,
             moments: Vec::new(),
+            triplication: false,
+            is_embedded: false,
         }
     }
 
@@ -41,6 +47,8 @@ impl Episode {
         Self {
             kind: EpisodeKind::InitialSituation,
             moments: Vec::new(),
+            triplication: false,
+            is_embedded: false,
         }
     }
 
@@ -49,6 +57,8 @@ impl Episode {
         Self {
             kind: EpisodeKind::Phase(phase),
             moments,
+            triplication: false,
+            is_embedded: false,
         }
     }
 
@@ -84,7 +94,31 @@ impl Episode {
             // Create episodes in phase order
             for (PhaseOrd(phase), moments) in phase_moments {
                 if !moments.is_empty() {
-                    episodes.push(Episode::phase(phase, moments));
+                    let mut ep = Episode::phase(phase, moments);
+                    // Pass triplication hint to donor-phase episodes
+                    if phase == Phase::Donor {
+                        ep.triplication = mov.triplication;
+                    }
+                    episodes.push(ep);
+                }
+            }
+
+            // Process embedded moves
+            for em in &mov.embedded_moves {
+                let mut em_phase_moments: BTreeMap<PhaseOrd, Vec<Moment>> = BTreeMap::new();
+                for moment in &em.moments {
+                    let phase = moment.function.function.phase();
+                    em_phase_moments
+                        .entry(PhaseOrd(phase))
+                        .or_default()
+                        .push(moment.clone());
+                }
+                for (PhaseOrd(phase), moments) in em_phase_moments {
+                    if !moments.is_empty() {
+                        let mut ep = Episode::phase(phase, moments);
+                        ep.is_embedded = true;
+                        episodes.push(ep);
+                    }
                 }
             }
         }

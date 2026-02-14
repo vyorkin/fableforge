@@ -15,8 +15,9 @@ use winnow::prelude::*;
 use winnow::token::{any, one_of};
 use winnow::ModalResult;
 
-use crate::function::{NarrativeFunction, NarrativeFunctionInstance};
-use crate::tale::{Move, Tale};
+use crate::dramatis::{Persona, Sphere};
+use crate::function::{NarrativeFunction, NarrativeFunctionInstance, Phase};
+use crate::tale::{Moment, Move, Tale};
 
 /// Tale formula in Propp's notation (формула сказки).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -116,9 +117,17 @@ impl Formula {
             self.elements
                 .push(FormulaElement::Function(moment.function.clone()));
         }
+        // Add embedded moves as bracketed elements
+        for em in &m.embedded_moves {
+            let mut inner = Vec::new();
+            for moment in &em.moments {
+                inner.push(FormulaElement::Function(moment.function.clone()));
+            }
+            self.elements.push(FormulaElement::Embedded(inner));
+        }
     }
 
-    /// Get all functions in the formula.
+    /// Get all functions in the formula (not including embedded).
     pub fn functions(&self) -> impl Iterator<Item = &NarrativeFunctionInstance> {
         self.elements.iter().filter_map(|e| match e {
             FormulaElement::Function(f) => Some(f),
@@ -128,6 +137,198 @@ impl Formula {
             },
             _ => None,
         })
+    }
+
+    /// Convert a parsed formula into a `Tale`.
+    ///
+    /// Splits elements by `MoveBreak` into moves, creates `Moment`s from
+    /// function elements, unwraps `Optional` (treats as present), skips
+    /// `Triplication`, and infers personae from the functions present.
+    #[must_use]
+    pub fn to_tale(&self) -> Tale {
+        // Split elements into groups by MoveBreak, collecting embedded elements per group
+        let mut move_groups: Vec<Vec<NarrativeFunctionInstance>> = vec![Vec::new()];
+        let mut embedded_groups: Vec<Vec<Vec<NarrativeFunctionInstance>>> = vec![Vec::new()];
+
+        for elem in &self.elements {
+            match elem {
+                FormulaElement::MoveBreak => {
+                    move_groups.push(Vec::new());
+                    embedded_groups.push(Vec::new());
+                }
+                FormulaElement::Function(inst) => {
+                    move_groups.last_mut().unwrap().push(inst.clone());
+                }
+                FormulaElement::Optional(inner) => {
+                    // Unwrap optional — treat as present
+                    if let FormulaElement::Function(inst) = inner.as_ref() {
+                        move_groups.last_mut().unwrap().push(inst.clone());
+                    }
+                }
+                FormulaElement::Triplication => {
+                    // Skip triplication markers
+                }
+                FormulaElement::Embedded(elements) => {
+                    let funcs: Vec<NarrativeFunctionInstance> = elements.iter().filter_map(|e| {
+                        if let FormulaElement::Function(inst) = e {
+                            Some(inst.clone())
+                        } else {
+                            None
+                        }
+                    }).collect();
+                    embedded_groups.last_mut().unwrap().push(funcs);
+                }
+            }
+        }
+
+        // Remove empty trailing groups (keep indices aligned)
+        let mut keep_indices = Vec::new();
+        for (i, g) in move_groups.iter().enumerate() {
+            if !g.is_empty() {
+                keep_indices.push(i);
+            }
+        }
+        let move_groups: Vec<_> = keep_indices.iter().map(|&i| move_groups[i].clone()).collect();
+        let embedded_groups: Vec<_> = keep_indices.iter().map(|&i| embedded_groups[i].clone()).collect();
+
+        // Collect all functions to infer personae
+        let all_funcs: Vec<NarrativeFunction> = move_groups
+            .iter()
+            .flat_map(|g| g.iter().map(|inst| inst.function))
+            .collect();
+
+        let personae = Self::infer_personae(&all_funcs);
+
+        let hero_id = personae
+            .iter()
+            .find(|p| p.spheres.contains(&Sphere::Hero))
+            .map(|p| p.id);
+        let villain_id = personae
+            .iter()
+            .find(|p| p.spheres.contains(&Sphere::Villain))
+            .map(|p| p.id);
+
+        // Build moves
+        let moves: Vec<Move> = move_groups
+            .into_iter()
+            .zip(embedded_groups.into_iter())
+            .enumerate()
+            .map(|(i, (funcs, embedded_funcs))| {
+                let mut m = if i == 0 {
+                    Move::new()
+                } else {
+                    Move::continuation()
+                };
+                for inst in funcs {
+                    let mut moment = Moment::new(inst.clone());
+                    // Assign agents/patients based on phase
+                    match inst.function.phase() {
+                        Phase::Complication
+                            if inst.function == NarrativeFunction::Villainy =>
+                        {
+                            moment.agent = villain_id;
+                            moment.patient = hero_id;
+                        }
+                        Phase::Donor
+                        | Phase::Struggle
+                        | Phase::Return
+                        | Phase::Resolution => {
+                            moment.agent = hero_id;
+                        }
+                        _ => {}
+                    }
+                    m.moments.push(moment);
+                }
+                // Add embedded moves
+                for em_funcs in embedded_funcs {
+                    let mut em = Move::embedded();
+                    for inst in em_funcs {
+                        let mut moment = Moment::new(inst.clone());
+                        match inst.function.phase() {
+                            Phase::Donor | Phase::Struggle | Phase::Return
+                            | Phase::Recognition | Phase::Resolution => {
+                                moment.agent = hero_id;
+                            }
+                            _ => {}
+                        }
+                        em.moments.push(moment);
+                    }
+                    m.embedded_moves.push(em);
+                }
+                m
+            })
+            .collect();
+
+        Tale {
+            initial: None,
+            moves,
+            personae,
+        }
+    }
+
+    /// Infer personae from a list of narrative functions.
+    fn infer_personae(funcs: &[NarrativeFunction]) -> Vec<Persona> {
+        let mut personae = Vec::new();
+        let mut next_id = 1u32;
+
+        // Always add Hero
+        personae.push(Persona::new(next_id, vec![Sphere::Hero]));
+        next_id += 1;
+
+        // Villainy present → add Villain
+        if funcs.contains(&NarrativeFunction::Villainy) {
+            personae.push(Persona::new(next_id, vec![Sphere::Villain]));
+            next_id += 1;
+        }
+
+        // Donor sequence present → add Donor
+        if funcs.iter().any(|f| {
+            matches!(
+                f,
+                NarrativeFunction::DonorTest
+                    | NarrativeFunction::HeroReaction
+                    | NarrativeFunction::Acquisition
+            )
+        }) {
+            personae.push(Persona::new(next_id, vec![Sphere::Donor]));
+            next_id += 1;
+        }
+
+        // Recognition/Wedding present → add Princess
+        if funcs.iter().any(|f| {
+            matches!(
+                f,
+                NarrativeFunction::Recognition | NarrativeFunction::Wedding
+            )
+        }) {
+            personae.push(Persona::new(next_id, vec![Sphere::Princess]));
+            next_id += 1;
+        }
+
+        // Mediation present → add Dispatcher
+        if funcs.contains(&NarrativeFunction::Mediation) {
+            personae.push(Persona::new(next_id, vec![Sphere::Dispatcher]));
+            next_id += 1;
+        }
+
+        // Guidance present → add Helper
+        if funcs.contains(&NarrativeFunction::Guidance) {
+            personae.push(Persona::new(next_id, vec![Sphere::Helper]));
+            next_id += 1;
+        }
+
+        // UnfoundedClaims or Exposure present → add FalseHero
+        if funcs.iter().any(|f| {
+            matches!(
+                f,
+                NarrativeFunction::UnfoundedClaims | NarrativeFunction::Exposure
+            )
+        }) {
+            personae.push(Persona::new(next_id, vec![Sphere::FalseHero]));
+            let _ = next_id;
+        }
+
+        personae
     }
 }
 
@@ -155,6 +356,16 @@ fn write_element_text(out: &mut String, elem: &FormulaElement) {
             write_element_text(out, inner);
             out.push(')');
         }
+        FormulaElement::Embedded(elements) => {
+            out.push('[');
+            for (i, elem) in elements.iter().enumerate() {
+                if i > 0 {
+                    out.push(' ');
+                }
+                write_element_text(out, elem);
+            }
+            out.push(']');
+        }
     }
 }
 
@@ -175,6 +386,16 @@ fn write_element_latex(out: &mut String, elem: &FormulaElement) {
             out.push('(');
             write_element_latex(out, inner);
             out.push(')');
+        }
+        FormulaElement::Embedded(elements) => {
+            out.push_str("\\left[");
+            for (i, elem) in elements.iter().enumerate() {
+                if i > 0 {
+                    out.push_str(" \\; ");
+                }
+                write_element_latex(out, elem);
+            }
+            out.push_str("\\right]");
         }
     }
 }
@@ -221,6 +442,8 @@ pub enum FormulaElement {
     Triplication,
     /// Optional element in parentheses (опциональный элемент).
     Optional(Box<FormulaElement>),
+    /// Embedded move in square brackets (вложенный ход).
+    Embedded(Vec<FormulaElement>),
 }
 
 /// Error parsing a formula.
@@ -257,6 +480,7 @@ fn parse_element(input: &mut &str) -> ModalResult<FormulaElement> {
         parse_move_break,
         parse_triplication,
         parse_optional,
+        parse_embedded,
         parse_function,
     ))
     .parse_next(input)
@@ -270,6 +494,11 @@ fn parse_move_break(input: &mut &str) -> ModalResult<FormulaElement> {
 fn parse_triplication(input: &mut &str) -> ModalResult<FormulaElement> {
     alt(("³", "^3")).parse_next(input)?;
     Ok(FormulaElement::Triplication)
+}
+
+fn parse_embedded(input: &mut &str) -> ModalResult<FormulaElement> {
+    let elements: Vec<FormulaElement> = delimited('[', repeat(0.., parse_element), ']').parse_next(input)?;
+    Ok(FormulaElement::Embedded(elements))
 }
 
 fn parse_optional(input: &mut &str) -> ModalResult<FormulaElement> {
@@ -561,5 +790,212 @@ mod tests {
 
         let funcs: Vec<_> = formula.functions().map(|f| f.function).collect();
         assert_eq!(funcs[0], NarrativeFunction::Lack);
+    }
+
+    // ========================================================================
+    // to_tale() tests
+    // ========================================================================
+
+    /// Roundtrip: from_tale → to_tale preserves function sequence
+    #[test]
+    fn test_roundtrip_from_tale_to_tale() {
+        let mut tale = Tale::default();
+        tale.personae.push(crate::dramatis::Persona::new(
+            1u32,
+            vec![crate::dramatis::Sphere::Hero],
+        ));
+        tale.personae.push(crate::dramatis::Persona::new(
+            2u32,
+            vec![crate::dramatis::Sphere::Villain],
+        ));
+
+        let mut m = Move::new();
+        m.add_function(NarrativeFunction::Villainy);
+        m.add_function(NarrativeFunction::Mediation);
+        m.add_function(NarrativeFunction::Departure);
+        m.add_function(NarrativeFunction::Liquidation);
+        m.add_function(NarrativeFunction::Return);
+        m.add_function(NarrativeFunction::Wedding);
+        tale.moves.push(m);
+
+        let formula = Formula::from_tale(&tale);
+        let reconstructed = formula.to_tale();
+
+        // Function sequence must match
+        let original_funcs: Vec<_> = tale
+            .all_moments()
+            .map(|m| m.function.function)
+            .collect();
+        let reconstructed_funcs: Vec<_> = reconstructed
+            .all_moments()
+            .map(|m| m.function.function)
+            .collect();
+        assert_eq!(original_funcs, reconstructed_funcs);
+    }
+
+    /// Parse a formula string and convert to tale
+    #[test]
+    fn test_to_tale_from_parsed() {
+        let formula = Formula::parse("A B ↑ K ↓ W").unwrap();
+        let tale = formula.to_tale();
+
+        // Single move (no MoveBreak)
+        assert_eq!(tale.moves.len(), 1);
+
+        // Correct function sequence
+        let funcs: Vec<_> = tale
+            .all_moments()
+            .map(|m| m.function.function)
+            .collect();
+        assert_eq!(
+            funcs,
+            vec![
+                NarrativeFunction::Villainy,
+                NarrativeFunction::Mediation,
+                NarrativeFunction::Departure,
+                NarrativeFunction::Liquidation,
+                NarrativeFunction::Return,
+                NarrativeFunction::Wedding,
+            ]
+        );
+
+        // Personae inferred: Hero, Villain (Villainy), Princess (Wedding)
+        assert!(tale.personae.iter().any(|p| p.spheres.contains(&crate::dramatis::Sphere::Hero)));
+        assert!(tale.personae.iter().any(|p| p.spheres.contains(&crate::dramatis::Sphere::Villain)));
+        assert!(tale.personae.iter().any(|p| p.spheres.contains(&crate::dramatis::Sphere::Princess)));
+    }
+
+    /// to_tale with multiple moves (MoveBreak)
+    #[test]
+    fn test_to_tale_multiple_moves() {
+        let formula = Formula::parse("A B ↑ K || ↓ W").unwrap();
+        let tale = formula.to_tale();
+
+        assert_eq!(tale.moves.len(), 2);
+        assert_eq!(tale.moves[0].moments.len(), 4); // A B ↑ K
+        assert_eq!(tale.moves[1].moments.len(), 2); // ↓ W
+    }
+
+    /// to_tale unwraps Optional elements
+    #[test]
+    fn test_to_tale_optional_unwrapped() {
+        let formula = Formula::parse("A (B) ↑").unwrap();
+        let tale = formula.to_tale();
+
+        let funcs: Vec<_> = tale
+            .all_moments()
+            .map(|m| m.function.function)
+            .collect();
+        assert_eq!(
+            funcs,
+            vec![
+                NarrativeFunction::Villainy,
+                NarrativeFunction::Mediation,
+                NarrativeFunction::Departure,
+            ]
+        );
+    }
+
+    /// to_tale preserves subtypes
+    #[test]
+    fn test_to_tale_preserves_subtypes() {
+        let formula = Formula::parse("A¹ B⁴ ↑").unwrap();
+        let tale = formula.to_tale();
+
+        assert_eq!(tale.moves[0].moments[0].function.subtype, Some(1));
+        assert_eq!(tale.moves[0].moments[1].function.subtype, Some(4));
+    }
+
+    /// to_tale infers Donor sphere when donor functions present
+    #[test]
+    fn test_to_tale_infers_donor() {
+        let formula = Formula::parse("A ↑ D E F K ↓").unwrap();
+        let tale = formula.to_tale();
+
+        assert!(tale.personae.iter().any(|p| p.spheres.contains(&crate::dramatis::Sphere::Donor)));
+    }
+
+    // ========================================================================
+    // Embedded move tests
+    // ========================================================================
+
+    /// Test parsing embedded moves in square brackets
+    #[test]
+    fn test_parse_embedded() {
+        let formula = Formula::parse("A ↑ [a C ↑ K ↓] K ↓ W").unwrap();
+
+        let has_embedded = formula.elements().iter().any(|e| matches!(e, FormulaElement::Embedded(_)));
+        assert!(has_embedded);
+    }
+
+    /// Test text output of embedded moves
+    #[test]
+    fn test_embedded_text_output() {
+        let formula = Formula::parse("A ↑ [a C ↑ K ↓] K ↓ W").unwrap();
+        let text = formula.to_text();
+        assert!(text.contains("[a C ↑ K ↓]"), "Expected embedded in text output, got: {}", text);
+    }
+
+    /// Test LaTeX output of embedded moves
+    #[test]
+    fn test_embedded_latex_output() {
+        let formula = Formula::parse("A ↑ [a C ↑ K ↓] K ↓ W").unwrap();
+        let latex = formula.to_latex();
+        assert!(latex.contains("\\left["), "Expected \\left[ in LaTeX output, got: {}", latex);
+        assert!(latex.contains("\\right]"), "Expected \\right] in LaTeX output, got: {}", latex);
+    }
+
+    /// Test from_tale with embedded moves
+    #[test]
+    fn test_from_tale_with_embedded() {
+        let mut tale = Tale::default();
+        let mut m = Move::new();
+        m.add_function(NarrativeFunction::Villainy);
+        m.add_function(NarrativeFunction::Departure);
+
+        let mut em = Move::embedded();
+        em.add_function(NarrativeFunction::Lack);
+        em.add_function(NarrativeFunction::Liquidation);
+        em.add_function(NarrativeFunction::Return);
+        m.embedded_moves.push(em);
+
+        tale.moves.push(m);
+
+        let formula = Formula::from_tale(&tale);
+        let text = formula.to_text();
+        assert!(text.contains("[a K ↓]"), "Expected embedded in formula text, got: {}", text);
+    }
+
+    /// Test to_tale with embedded moves
+    #[test]
+    fn test_to_tale_with_embedded() {
+        let formula = Formula::parse("A ↑ [a C ↑ K ↓] K ↓ W").unwrap();
+        let tale = formula.to_tale();
+
+        assert_eq!(tale.moves.len(), 1);
+        assert_eq!(tale.moves[0].embedded_moves.len(), 1);
+
+        let em = &tale.moves[0].embedded_moves[0];
+        assert_eq!(em.relation, crate::tale::MoveRelation::Embedded);
+        let em_funcs: Vec<_> = em.moments.iter().map(|m| m.function.function).collect();
+        assert_eq!(em_funcs, vec![
+            NarrativeFunction::Lack,
+            NarrativeFunction::Counteraction,
+            NarrativeFunction::Departure,
+            NarrativeFunction::Liquidation,
+            NarrativeFunction::Return,
+        ]);
+    }
+
+    /// Test infer_personae includes Dispatcher and Helper
+    #[test]
+    fn test_infer_dispatcher_and_helper() {
+        let formula = Formula::parse("A B ↑ G H I K ↓ W").unwrap();
+        let tale = formula.to_tale();
+
+        assert!(tale.personae.iter().any(|p| p.spheres.contains(&crate::dramatis::Sphere::Dispatcher)),
+            "Expected Dispatcher inferred from Mediation (B)");
+        assert!(tale.personae.iter().any(|p| p.spheres.contains(&crate::dramatis::Sphere::Helper)),
+            "Expected Helper inferred from Guidance (G)");
     }
 }

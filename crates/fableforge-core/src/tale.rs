@@ -33,9 +33,13 @@ impl Tale {
         }
     }
 
-    /// Get all moments across all moves.
+    /// Get all moments across all moves, including embedded moves.
     pub fn all_moments(&self) -> impl Iterator<Item = &Moment> {
-        self.moves.iter().flat_map(|m| m.moments.iter())
+        self.moves.iter().flat_map(|m| {
+            m.moments.iter().chain(
+                m.embedded_moves.iter().flat_map(|em| em.moments.iter())
+            )
+        })
     }
 }
 
@@ -121,6 +125,10 @@ pub struct Move {
     pub moments: Vec<Moment>,
     /// Relation to previous move (связь с предыдущим ходом).
     pub relation: MoveRelation,
+    /// Whether this move uses triplication (утроение).
+    pub triplication: bool,
+    /// Embedded moves — secondary quests within this move.
+    pub embedded_moves: Vec<Move>,
 }
 
 impl Move {
@@ -130,6 +138,8 @@ impl Move {
         Self {
             moments: Vec::new(),
             relation: MoveRelation::Initial,
+            triplication: false,
+            embedded_moves: Vec::new(),
         }
     }
 
@@ -139,6 +149,8 @@ impl Move {
         Self {
             moments: Vec::new(),
             relation: MoveRelation::Continuation,
+            triplication: false,
+            embedded_moves: Vec::new(),
         }
     }
 
@@ -148,6 +160,8 @@ impl Move {
         Self {
             moments: Vec::new(),
             relation: MoveRelation::Embedded,
+            triplication: false,
+            embedded_moves: Vec::new(),
         }
     }
 

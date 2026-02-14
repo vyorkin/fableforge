@@ -20,6 +20,7 @@
 use serde::{Deserialize, Serialize};
 
 pub mod connective;
+pub mod corpus;
 pub mod dramatis;
 pub mod formula;
 pub mod function;
@@ -40,6 +41,7 @@ pub enum Lang {
 
 // Re-exports for convenience
 pub use connective::Connective;
+pub use corpus::Corpus;
 pub use dramatis::{Attributes, Persona, PersonaId, Sphere};
 pub use formula::{Formula, FormulaElement, ParseError};
 pub use function::{NarrativeFunction, NarrativeFunctionInstance, Phase};

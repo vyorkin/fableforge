@@ -486,12 +486,22 @@ impl NarrativeFunctionInstance {
     /// Get full description as a single string.
     ///
     /// Format: "Function name — subtype description" or just "Function name".
+    /// Negated functions are prefixed with "Невыполнение:" (Ru) or "Failure:" (En).
     #[must_use]
     pub fn full_description(&self, lang: Lang) -> String {
         let (name, subtype_desc) = self.description(lang);
-        match subtype_desc {
+        let base = match subtype_desc {
             Some(desc) => format!("{} — {}", name, desc),
             None => name,
+        };
+        if self.negated {
+            let prefix = match lang {
+                Lang::Ru => "Невыполнение",
+                Lang::En => "Failure",
+            };
+            format!("{}: {}", prefix, base)
+        } else {
+            base
         }
     }
 }
@@ -643,5 +653,14 @@ mod tests {
         let f2 = NarrativeFunctionInstance::with_subtype(NarrativeFunction::DonorTest, 8);
         assert_eq!(f2.full_description(Lang::Ru), "Испытание дарителя — Загадка");
         assert_eq!(f2.full_description(Lang::En), "Donor Test — Riddle");
+    }
+
+    #[test]
+    fn test_negated_full_description() {
+        let f = NarrativeFunctionInstance::negated(NarrativeFunction::HeroReaction);
+        assert!(f.full_description(Lang::Ru).starts_with("Невыполнение:"));
+        assert!(f.full_description(Lang::En).starts_with("Failure:"));
+        assert!(f.full_description(Lang::Ru).contains("Реакция героя"));
+        assert!(f.full_description(Lang::En).contains("Hero's Reaction"));
     }
 }

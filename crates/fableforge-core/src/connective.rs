@@ -6,8 +6,6 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::tale::Moment;
-
 /// Connective element between moments (связка между моментами).
 ///
 /// These are not exhaustive — Propp notes their variability.
@@ -53,35 +51,6 @@ impl Connective {
     }
 }
 
-/// Triplication (утроение) — repetition of an episode three times.
-///
-/// One of the most characteristic features of fairy tales.
-/// The third attempt is usually successful or climactic.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Triplication {
-    /// The repeated moments.
-    pub moments: Vec<Moment>,
-    /// Variation pattern description (for LLM guidance).
-    /// Examples: "identical", "ascending difficulty", "third succeeds"
-    pub variation: String,
-}
-
-impl Triplication {
-    /// Create a new triplication.
-    #[must_use]
-    pub fn new(moments: Vec<Moment>, variation: impl Into<String>) -> Self {
-        Self {
-            moments,
-            variation: variation.into(),
-        }
-    }
-
-    /// The number of repetitions (always 3 in classic fairy tales).
-    #[must_use]
-    pub const fn count(&self) -> usize {
-        3
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -99,10 +68,4 @@ mod tests {
         assert!(matches!(c3, Connective::Transference(_)));
     }
 
-    #[test]
-    fn test_triplication() {
-        let trip = Triplication::new(vec![], "третья попытка успешна");
-        assert_eq!(trip.count(), 3);
-        assert_eq!(trip.variation, "третья попытка успешна");
-    }
 }

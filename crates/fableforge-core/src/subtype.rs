@@ -95,8 +95,8 @@ const ABSENTATION_SUBTYPES: &[SubtypeInfo] = &[
 
 /// β — Interdiction (Запрет)
 const INTERDICTION_SUBTYPES: &[SubtypeInfo] = &[
-    SubtypeInfo { index: 1, name_ru: "Запрет выходить из дома", name_en: "Prohibition to go outside" },
-    SubtypeInfo { index: 2, name_ru: "Запрет открывать дверь/сундук", name_en: "Prohibition to open door/chest" },
+    SubtypeInfo { index: 1, name_ru: "Запрет покидать безопасное место", name_en: "Prohibition to leave safe place" },
+    SubtypeInfo { index: 2, name_ru: "Запрет открывать запретное вместилище", name_en: "Prohibition to open forbidden container" },
     SubtypeInfo { index: 3, name_ru: "Запрет произносить слово/имя", name_en: "Prohibition to speak word/name" },
 ];
 
@@ -146,7 +146,7 @@ const VILLAINY_SUBTYPES: &[SubtypeInfo] = &[
     SubtypeInfo { index: 7, name_ru: "Причинение внезапного исчезновения", name_en: "Causing sudden disappearance" },
     SubtypeInfo { index: 8, name_ru: "Требование или выманивание жертвы", name_en: "Demanding or luring victim" },
     SubtypeInfo { index: 9, name_ru: "Изгнание", name_en: "Expulsion" },
-    SubtypeInfo { index: 10, name_ru: "Приказ бросить в воду", name_en: "Order to cast into water" },
+    SubtypeInfo { index: 10, name_ru: "Приказ погубить стихией", name_en: "Order to destroy by element" },
     SubtypeInfo { index: 11, name_ru: "Околдование", name_en: "Casting a spell" },
     SubtypeInfo { index: 12, name_ru: "Подмена", name_en: "Substitution" },
     SubtypeInfo { index: 13, name_ru: "Приказ убить", name_en: "Order to kill" },
@@ -163,7 +163,7 @@ const LACK_SUBTYPES: &[SubtypeInfo] = &[
     SubtypeInfo { index: 1, name_ru: "Недостача невесты или друга", name_en: "Lack of bride or friend" },
     SubtypeInfo { index: 2, name_ru: "Недостача волшебного средства", name_en: "Lack of magical agent" },
     SubtypeInfo { index: 3, name_ru: "Недостача диковинок", name_en: "Lack of wondrous objects" },
-    SubtypeInfo { index: 4, name_ru: "Недостача яйца с Кощеевой смертью", name_en: "Lack of death-egg (life object)" },
+    SubtypeInfo { index: 4, name_ru: "Недостача предмета, хранящего чью-то жизнь", name_en: "Lack of object holding someone's life" },
     SubtypeInfo { index: 5, name_ru: "Нехватка денег, средств к существованию", name_en: "Lack of money or means" },
     SubtypeInfo { index: 6, name_ru: "Недостача в иных формах", name_en: "Lack in other forms" },
 ];
@@ -184,7 +184,7 @@ const COUNTERACTION_SUBTYPES: &[SubtypeInfo] = &[
 
 /// ↑ — Departure (Отправка)
 const DEPARTURE_SUBTYPES: &[SubtypeInfo] = &[
-    SubtypeInfo { index: 1, name_ru: "Герой отправляется из дома", name_en: "Hero leaves home" },
+    SubtypeInfo { index: 1, name_ru: "Герой покидает привычное место", name_en: "Hero leaves familiar place" },
     SubtypeInfo { index: 2, name_ru: "Герой идёт за пострадавшим", name_en: "Hero follows the victim" },
 ];
 
@@ -229,8 +229,8 @@ const ACQUISITION_SUBTYPES: &[SubtypeInfo] = &[
 
 /// G — Guidance (Пространственное перемещение)
 const GUIDANCE_SUBTYPES: &[SubtypeInfo] = &[
-    SubtypeInfo { index: 1, name_ru: "Полёт по воздуху", name_en: "Flight through the air" },
-    SubtypeInfo { index: 2, name_ru: "Передвижение по земле или воде", name_en: "Travel on land or water" },
+    SubtypeInfo { index: 1, name_ru: "Перемещение по воздуху", name_en: "Aerial transfer" },
+    SubtypeInfo { index: 2, name_ru: "Наземное или водное перемещение", name_en: "Overland or water transfer" },
     SubtypeInfo { index: 3, name_ru: "Герою указывают путь", name_en: "Hero is led" },
     SubtypeInfo { index: 4, name_ru: "Путь показывают следы", name_en: "Path is shown by tracks" },
     SubtypeInfo { index: 5, name_ru: "Использование неподвижных средств", name_en: "Use of stationary means" },
@@ -241,21 +241,21 @@ const GUIDANCE_SUBTYPES: &[SubtypeInfo] = &[
 const STRUGGLE_SUBTYPES: &[SubtypeInfo] = &[
     SubtypeInfo { index: 1, name_ru: "Бой на открытом поле", name_en: "Fight in open field" },
     SubtypeInfo { index: 2, name_ru: "Соревнование", name_en: "Competition" },
-    SubtypeInfo { index: 3, name_ru: "Игра в карты", name_en: "Card game" },
+    SubtypeInfo { index: 3, name_ru: "Состязание в игре", name_en: "Game contest" },
     SubtypeInfo { index: 4, name_ru: "Взвешивание", name_en: "Weighing" },
 ];
 
 /// J — Branding (Клеймение)
 const BRANDING_SUBTYPES: &[SubtypeInfo] = &[
     SubtypeInfo { index: 1, name_ru: "Нанесение клейма на тело", name_en: "Mark applied to body" },
-    SubtypeInfo { index: 2, name_ru: "Передача кольца или платка", name_en: "Ring or handkerchief given" },
+    SubtypeInfo { index: 2, name_ru: "Передача опознавательного предмета", name_en: "Identification token given" },
 ];
 
 /// I — Victory (Победа)
 const VICTORY_SUBTYPES: &[SubtypeInfo] = &[
     SubtypeInfo { index: 1, name_ru: "Победа в открытом бою", name_en: "Victory in open battle" },
     SubtypeInfo { index: 2, name_ru: "Победа в соревновании", name_en: "Victory in competition" },
-    SubtypeInfo { index: 3, name_ru: "Выигрыш в карты", name_en: "Win in cards" },
+    SubtypeInfo { index: 3, name_ru: "Победа в игре", name_en: "Victory in game" },
     SubtypeInfo { index: 4, name_ru: "Победа при взвешивании", name_en: "Victory in weighing" },
     SubtypeInfo { index: 5, name_ru: "Победа без боя — убийство", name_en: "Victory without battle — killing" },
     SubtypeInfo { index: 6, name_ru: "Изгнание злодея", name_en: "Expulsion of villain" },
@@ -278,7 +278,7 @@ const LIQUIDATION_SUBTYPES: &[SubtypeInfo] = &[
 /// ↓ — Return (Возвращение)
 const RETURN_SUBTYPES: &[SubtypeInfo] = &[
     SubtypeInfo { index: 1, name_ru: "Возвращение по воздуху", name_en: "Return by air" },
-    SubtypeInfo { index: 2, name_ru: "Возвращение по земле или воде", name_en: "Return by land or water" },
+    SubtypeInfo { index: 2, name_ru: "Наземное или водное возвращение", name_en: "Overland or water return" },
     SubtypeInfo { index: 3, name_ru: "Возвращение с провожатым", name_en: "Return with guide" },
     SubtypeInfo { index: 4, name_ru: "Бегство", name_en: "Flight (escape)" },
 ];
@@ -298,7 +298,7 @@ const RESCUE_SUBTYPES: &[SubtypeInfo] = &[
     SubtypeInfo { index: 1, name_ru: "Бегство с превращениями", name_en: "Flight with transformations" },
     SubtypeInfo { index: 2, name_ru: "Бегство с бросанием предметов", name_en: "Flight throwing objects" },
     SubtypeInfo { index: 3, name_ru: "Бегство с укрывательством", name_en: "Flight with hiding" },
-    SubtypeInfo { index: 4, name_ru: "Укрывание у кузнеца", name_en: "Hiding at blacksmith's" },
+    SubtypeInfo { index: 4, name_ru: "Укрывание у мастера", name_en: "Hiding at craftsman's" },
     SubtypeInfo { index: 5, name_ru: "Преследователь теряет силу", name_en: "Pursuer loses power" },
     SubtypeInfo { index: 6, name_ru: "Спасение от проглатывания", name_en: "Rescue from being devoured" },
 ];
@@ -311,7 +311,7 @@ const UNRECOGNIZED_ARRIVAL_SUBTYPES: &[SubtypeInfo] = &[
 
 /// L — Unfounded Claims (Необоснованные притязания)
 const UNFOUNDED_CLAIMS_SUBTYPES: &[SubtypeInfo] = &[
-    SubtypeInfo { index: 1, name_ru: "Ложный герой — генерал, водовоз", name_en: "False hero — general, water-carrier" },
+    SubtypeInfo { index: 1, name_ru: "Ложный герой — самозванец", name_en: "False hero — impostor" },
     SubtypeInfo { index: 2, name_ru: "Ложный герой — братья", name_en: "False hero — brothers" },
     SubtypeInfo { index: 3, name_ru: "Ложный герой — сёстры", name_en: "False hero — sisters" },
 ];
@@ -350,7 +350,7 @@ const EXPOSURE_SUBTYPES: &[SubtypeInfo] = &[
 /// T — Transfiguration (Трансфигурация)
 const TRANSFIGURATION_SUBTYPES: &[SubtypeInfo] = &[
     SubtypeInfo { index: 1, name_ru: "Новый облик в результате волшебства", name_en: "New appearance through magic" },
-    SubtypeInfo { index: 2, name_ru: "Строительство дворца", name_en: "Building of palace" },
+    SubtypeInfo { index: 2, name_ru: "Обретение величественного жилища", name_en: "Acquisition of grand dwelling" },
     SubtypeInfo { index: 3, name_ru: "Новые одежды", name_en: "New garments" },
     SubtypeInfo { index: 4, name_ru: "Комическая внешность", name_en: "Comic appearance" },
 ];
@@ -359,7 +359,7 @@ const TRANSFIGURATION_SUBTYPES: &[SubtypeInfo] = &[
 const PUNISHMENT_SUBTYPES: &[SubtypeInfo] = &[
     SubtypeInfo { index: 1, name_ru: "Расстрел", name_en: "Shooting" },
     SubtypeInfo { index: 2, name_ru: "Изгнание", name_en: "Banishment" },
-    SubtypeInfo { index: 3, name_ru: "Привязывание к хвосту коня", name_en: "Tying to horse's tail" },
+    SubtypeInfo { index: 3, name_ru: "Суровое телесное наказание", name_en: "Severe corporal punishment" },
     SubtypeInfo { index: 4, name_ru: "Самоубийство", name_en: "Suicide" },
     SubtypeInfo { index: 5, name_ru: "Прощение", name_en: "Forgiveness" },
 ];

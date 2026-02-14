@@ -1,0 +1,20 @@
+[package]
+name = "fableforge-tg"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "fableforge-tg"
+path = "src/main.rs"
+
+[dependencies]
+fableforge-core = { path = "../fableforge-core" }
+fableforge-llm = { path = "../fableforge-llm" }
+
+teloxide = { version = "0.13", features = ["macros"] }
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true

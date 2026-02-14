@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use tracing::{debug, info, instrument};
 
-use fableforge_core::Tale;
+use fableforge_core::{Lang, Tale};
 
 use crate::client::LlmClient;
 use crate::context::{CharacterResponse, GeneratedStory, TaleContext};
@@ -25,6 +25,12 @@ impl<C: LlmClient> StoryComposer<C> {
             client: Arc::new(client),
             prompt_builder: PromptBuilder::new(style),
         }
+    }
+
+    /// Set the language for prompts.
+    pub fn with_lang(mut self, lang: Lang) -> Self {
+        self.prompt_builder = self.prompt_builder.with_lang(lang);
+        self
     }
 
     /// Generate a complete story from a tale structure.
@@ -71,7 +77,7 @@ impl<C: LlmClient> StoryComposer<C> {
                     let initial = tale.initial.as_ref().ok_or_else(|| {
                         LlmError::MissingContext("Initial situation not found".to_string())
                     })?;
-                    let prompt = self.prompt_builder.initial_situation_prompt(initial, &ctx);
+                    let prompt = self.prompt_builder.initial_situation_prompt(initial, &ctx, &tale.personae);
                     debug!("Initial situation prompt length: {} chars", prompt.len());
 
                     let text = self.client.complete(&prompt).await?;
@@ -84,7 +90,7 @@ impl<C: LlmClient> StoryComposer<C> {
                         i,
                         episode.moments.len()
                     );
-                    let prompt = self.prompt_builder.phase_prompt(episode, &ctx);
+                    let prompt = self.prompt_builder.phase_prompt(episode, &ctx, &tale.personae);
                     debug!("Phase prompt length: {} chars", prompt.len());
 
                     let text = self.client.complete(&prompt).await?;
