@@ -395,16 +395,16 @@ impl RandomGen {
         let primary_idx = personae.iter().position(|p| p.spheres.contains(&primary));
         let secondary_idx = personae.iter().position(|p| p.spheres.contains(&secondary));
 
-        if let (Some(pi), Some(si)) = (primary_idx, secondary_idx) {
-            if pi != si {
-                let secondary_spheres = personae[si].spheres.clone();
-                for s in secondary_spheres {
-                    if !personae[pi].spheres.contains(&s) {
-                        personae[pi].spheres.push(s);
-                    }
+        if let (Some(pi), Some(si)) = (primary_idx, secondary_idx)
+            && pi != si
+        {
+            let secondary_spheres = personae[si].spheres.clone();
+            for s in secondary_spheres {
+                if !personae[pi].spheres.contains(&s) {
+                    personae[pi].spheres.push(s);
                 }
-                personae.remove(si);
             }
+            personae.remove(si);
         }
     }
 

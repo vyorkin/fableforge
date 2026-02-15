@@ -540,7 +540,7 @@ fn print_structure(tale: &fableforge_core::Tale, lang: Lang) {
 
             if let Some(ref connective) = moment.connective {
                 let (label, text) = format_connective_cli(connective, lang);
-                println!("        {} {}: {}", "↳", label, text);
+                println!("        \u{21b3} {}: {}", label, text);
             }
         }
 

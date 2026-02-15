@@ -549,10 +549,10 @@ impl OpenRouterClient {
             HeaderValue::from_str(&format!("Bearer {}", self.api_key))
                 .map_err(|_| LlmError::InvalidApiKey)?,
         );
-        if let Some(ref name) = self.app_name {
-            if let Ok(val) = HeaderValue::from_str(name) {
-                headers.insert("X-Title", val);
-            }
+        if let Some(ref name) = self.app_name
+            && let Ok(val) = HeaderValue::from_str(name)
+        {
+            headers.insert("X-Title", val);
         }
 
         let url = format!("{}/chat/completions", OPENROUTER_API_BASE_URL);

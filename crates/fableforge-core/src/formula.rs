@@ -211,7 +211,7 @@ impl Formula {
         // Build moves
         let moves: Vec<Move> = move_groups
             .into_iter()
-            .zip(embedded_groups.into_iter())
+            .zip(embedded_groups)
             .enumerate()
             .map(|(i, (funcs, embedded_funcs))| {
                 let mut m = if i == 0 {
