@@ -3,21 +3,21 @@
 //! Generate fairy tale structures. The actual narrative text will be
 //! produced by an external LLM API based on these structures.
 
-use std::collections::HashSet;
-use std::ops::Range;
+use std::{collections::HashSet, ops::Range};
 
-use rand::prelude::*;
-use rand::rngs::StdRng;
+use rand::{prelude::*, rngs::StdRng};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::connective::Connective;
-use crate::corpus::Corpus;
-use crate::dramatis::{Persona, Sphere};
-use crate::function::{NarrativeFunction, NarrativeFunctionInstance, Phase};
-use crate::subtype::subtype_count;
-use crate::syntax::Syntax;
-use crate::tale::{InitialSituation, Moment, Move, Setting, Tale};
+use crate::{
+    connective::Connective,
+    corpus::Corpus,
+    dramatis::{Persona, Sphere},
+    function::{NarrativeFunction, NarrativeFunctionInstance, Phase},
+    subtype::subtype_count,
+    syntax::Syntax,
+    tale::{InitialSituation, Moment, Move, Setting, Tale},
+};
 
 /// Generator of morphological structures (генератор морфологических структур).
 pub trait Generator {
@@ -150,7 +150,12 @@ impl RandomGen {
     }
 
     /// Generate a random move following canonical structure.
-    fn generate_move(&mut self, is_first: bool, include_subtypes: bool, has_false_hero: bool) -> Move {
+    fn generate_move(
+        &mut self,
+        is_first: bool,
+        include_subtypes: bool,
+        has_false_hero: bool,
+    ) -> Move {
         let mut m = if is_first {
             Move::new()
         } else {
@@ -171,7 +176,8 @@ impl RandomGen {
             functions.push(NarrativeFunction::Absentation);
         }
         if self.rng.gen_bool(0.5) {
-            // neg-β (~10%): interdiction implied but not stated; violation still follows
+            // neg-β (~10%): interdiction implied but not stated; violation
+            // still follows
             if self.rng.gen_bool(0.1) {
                 negated.insert(NarrativeFunction::Interdiction);
             }
@@ -219,7 +225,8 @@ impl RandomGen {
         let has_struggle = self.rng.gen_bool(0.6);
         if has_struggle {
             functions.push(NarrativeFunction::Guidance);
-            // neg-H (~15%): struggle doesn't happen, villain defeated by cunning
+            // neg-H (~15%): struggle doesn't happen, villain defeated by
+            // cunning
             if self.rng.gen_bool(0.15) {
                 negated.insert(NarrativeFunction::Struggle);
                 functions.push(NarrativeFunction::Struggle);
@@ -281,7 +288,8 @@ impl RandomGen {
         }
 
         // Check if donor sequence is present (for triplication)
-        let has_donor_sequence = functions.contains(&NarrativeFunction::DonorTest)
+        let has_donor_sequence = functions
+            .contains(&NarrativeFunction::DonorTest)
             && functions.contains(&NarrativeFunction::HeroReaction)
             && functions.contains(&NarrativeFunction::Acquisition);
         if has_donor_sequence && self.rng.gen_bool(0.4) {
@@ -294,7 +302,8 @@ impl RandomGen {
             let instance = if is_negated {
                 NarrativeFunctionInstance::negated(*func)
             } else if include_subtypes {
-                let coherent = self.pick_coherent_subtype(*func, &chosen_subtypes);
+                let coherent =
+                    self.pick_coherent_subtype(*func, &chosen_subtypes);
                 if let Some(sub) = coherent {
                     NarrativeFunctionInstance::with_subtype(*func, sub)
                 } else {
@@ -311,7 +320,8 @@ impl RandomGen {
 
             let mut moment = Moment::new(instance);
 
-            // Attach connectives at key narrative transitions (~60% probability)
+            // Attach connectives at key narrative transitions (~60%
+            // probability)
             if self.rng.gen_bool(0.6) {
                 moment.connective = self.pick_connective(*func);
             }
@@ -323,27 +333,35 @@ impl RandomGen {
     }
 
     /// Pick a connective appropriate for the given function, if any.
-    fn pick_connective(&mut self, func: NarrativeFunction) -> Option<Connective> {
+    fn pick_connective(
+        &mut self,
+        func: NarrativeFunction,
+    ) -> Option<Connective> {
         match func {
             NarrativeFunction::Counteraction => {
-                let choice = self.corpus.pick_motivation(&mut self.rng).to_string();
+                let choice =
+                    self.corpus.pick_motivation(&mut self.rng).to_string();
                 Some(Connective::motivation(choice))
             }
             NarrativeFunction::Departure | NarrativeFunction::Return => {
-                let choice = self.corpus.pick_transference(&mut self.rng).to_string();
+                let choice =
+                    self.corpus.pick_transference(&mut self.rng).to_string();
                 Some(Connective::transference(choice))
             }
             NarrativeFunction::DonorTest | NarrativeFunction::Guidance => {
-                let choice = self.corpus.pick_temporal(&mut self.rng).to_string();
+                let choice =
+                    self.corpus.pick_temporal(&mut self.rng).to_string();
                 Some(Connective::temporal(choice))
             }
             _ => None,
         }
     }
 
-    /// Pick a coherent subtype based on previously chosen subtypes in the same move.
+    /// Pick a coherent subtype based on previously chosen subtypes in the same
+    /// move.
     ///
-    /// Returns `Some(subtype_index)` if a coherent mapping exists, `None` otherwise.
+    /// Returns `Some(subtype_index)` if a coherent mapping exists, `None`
+    /// otherwise.
     fn pick_coherent_subtype(
         &mut self,
         func: NarrativeFunction,
@@ -352,25 +370,31 @@ impl RandomGen {
         match func {
             NarrativeFunction::Liquidation => {
                 // Villainy subtype → preferred Liquidation subtypes
-                let villainy_sub = chosen.iter()
+                let villainy_sub = chosen
+                    .iter()
                     .find(|(f, _)| *f == NarrativeFunction::Villainy)
                     .map(|(_, s)| *s);
                 match villainy_sub {
-                    Some(1) | Some(15) => Some(10), // kidnapping/imprisonment → captive freed
-                    Some(2) => Some(4),             // theft of magical agent → obtained by magical agent
-                    Some(11) => Some(8),            // casting spell → spell broken
-                    Some(14) => Some(9),            // murder → slain person revived
+                    Some(1) | Some(15) => Some(10), /* kidnapping/ */
+                    // imprisonment →
+                    // captive freed
+                    Some(2) => Some(4), /* theft of magical agent → obtained */
+                    // by magical agent
+                    Some(11) => Some(8), // casting spell → spell broken
+                    Some(14) => Some(9), // murder → slain person revived
                     _ => None,
                 }
             }
             NarrativeFunction::Recognition => {
                 // Branding subtype → preferred Recognition subtypes
-                let branding_sub = chosen.iter()
+                let branding_sub = chosen
+                    .iter()
                     .find(|(f, _)| *f == NarrativeFunction::Branding)
                     .map(|(_, s)| *s);
                 match branding_sub {
                     Some(1) => Some(1), // mark on body → recognition by mark
-                    Some(2) => Some(2), // identification token → recognition by token
+                    Some(2) => Some(2), /* identification token → */
+                    // recognition by token
                     _ => None,
                 }
             }
@@ -401,42 +425,63 @@ impl RandomGen {
         let mut next_id = 1u32;
 
         // Always have a hero
-        personae.push(Persona::new(next_id, vec![Sphere::Hero]));
+        personae.push(Persona::new(
+            next_id,
+            vec![Sphere::Hero],
+        ));
         next_id += 1;
 
         // Usually have a villain
         if self.rng.gen_bool(0.9) {
-            personae.push(Persona::new(next_id, vec![Sphere::Villain]));
+            personae.push(Persona::new(
+                next_id,
+                vec![Sphere::Villain],
+            ));
             next_id += 1;
         }
 
         // Sometimes have a donor
         if self.rng.gen_bool(0.7) {
-            personae.push(Persona::new(next_id, vec![Sphere::Donor]));
+            personae.push(Persona::new(
+                next_id,
+                vec![Sphere::Donor],
+            ));
             next_id += 1;
         }
 
         // Sometimes have a princess
         if self.rng.gen_bool(0.6) {
-            personae.push(Persona::new(next_id, vec![Sphere::Princess]));
+            personae.push(Persona::new(
+                next_id,
+                vec![Sphere::Princess],
+            ));
             next_id += 1;
         }
 
         // Sometimes have a dispatcher
         if self.rng.gen_bool(0.3) {
-            personae.push(Persona::new(next_id, vec![Sphere::Dispatcher]));
+            personae.push(Persona::new(
+                next_id,
+                vec![Sphere::Dispatcher],
+            ));
             next_id += 1;
         }
 
         // Sometimes have a helper
         if self.rng.gen_bool(0.2) {
-            personae.push(Persona::new(next_id, vec![Sphere::Helper]));
+            personae.push(Persona::new(
+                next_id,
+                vec![Sphere::Helper],
+            ));
             next_id += 1;
         }
 
         // Sometimes have a false hero
         if self.rng.gen_bool(0.25) {
-            personae.push(Persona::new(next_id, vec![Sphere::FalseHero]));
+            personae.push(Persona::new(
+                next_id,
+                vec![Sphere::FalseHero],
+            ));
         }
 
         personae
@@ -448,17 +493,48 @@ impl RandomGen {
     /// This reduces character count but gives richer personae.
     fn merge_spheres(&mut self, personae: &mut Vec<Persona>) {
         // Donor + Helper (35%)
-        self.try_merge(personae, Sphere::Donor, Sphere::Helper, 0.35);
+        self.try_merge(
+            personae,
+            Sphere::Donor,
+            Sphere::Helper,
+            0.35,
+        );
         // Villain + FalseHero (40%)
-        self.try_merge(personae, Sphere::Villain, Sphere::FalseHero, 0.40);
+        self.try_merge(
+            personae,
+            Sphere::Villain,
+            Sphere::FalseHero,
+            0.40,
+        );
         // Princess + Dispatcher (25%)
-        self.try_merge(personae, Sphere::Princess, Sphere::Dispatcher, 0.25);
-        // Hero + Dispatcher (20%) — hero learns of misfortune and departs on their own
-        self.try_merge(personae, Sphere::Hero, Sphere::Dispatcher, 0.20);
+        self.try_merge(
+            personae,
+            Sphere::Princess,
+            Sphere::Dispatcher,
+            0.25,
+        );
+        // Hero + Dispatcher (20%) — hero learns of misfortune and departs on
+        // their own
+        self.try_merge(
+            personae,
+            Sphere::Hero,
+            Sphere::Dispatcher,
+            0.20,
+        );
         // Villain + Donor (15%) — villain tests the hero (villain-donor)
-        self.try_merge(personae, Sphere::Villain, Sphere::Donor, 0.15);
+        self.try_merge(
+            personae,
+            Sphere::Villain,
+            Sphere::Donor,
+            0.15,
+        );
         // Hero + Helper (10%) — hero possesses magical abilities
-        self.try_merge(personae, Sphere::Hero, Sphere::Helper, 0.10);
+        self.try_merge(
+            personae,
+            Sphere::Hero,
+            Sphere::Helper,
+            0.10,
+        );
     }
 
     /// Try to merge two spheres: find personae with each sphere,
@@ -473,8 +549,10 @@ impl RandomGen {
         if !self.rng.gen_bool(probability) {
             return;
         }
-        let primary_idx = personae.iter().position(|p| p.spheres.contains(&primary));
-        let secondary_idx = personae.iter().position(|p| p.spheres.contains(&secondary));
+        let primary_idx =
+            personae.iter().position(|p| p.spheres.contains(&primary));
+        let secondary_idx =
+            personae.iter().position(|p| p.spheres.contains(&secondary));
 
         if let (Some(pi), Some(si)) = (primary_idx, secondary_idx)
             && pi != si
@@ -545,7 +623,8 @@ impl RandomGen {
         }
 
         for func in &functions {
-            let instance = self.create_function_instance(*func, include_subtypes);
+            let instance =
+                self.create_function_instance(*func, include_subtypes);
             m.moments.push(Moment::new(instance));
         }
 
@@ -595,13 +674,19 @@ impl Generator for RandomGen {
         };
 
         // Assign persona IDs to moments where appropriate
-        let hero_id = tale.personae.iter()
+        let hero_id = tale
+            .personae
+            .iter()
             .find(|p| p.spheres.contains(&Sphere::Hero))
             .map(|p| p.id);
-        let villain_id = tale.personae.iter()
+        let villain_id = tale
+            .personae
+            .iter()
             .find(|p| p.spheres.contains(&Sphere::Villain))
             .map(|p| p.id);
-        let false_hero_id = tale.personae.iter()
+        let false_hero_id = tale
+            .personae
+            .iter()
             .find(|p| p.spheres.contains(&Sphere::FalseHero))
             .map(|p| p.id);
         let has_false_hero = false_hero_id.is_some();
@@ -609,7 +694,11 @@ impl Generator for RandomGen {
         // Generate moves
         let move_count = self.rng.gen_range(config.move_count.clone());
         for i in 0..move_count {
-            let mut m = self.generate_move(i == 0, config.include_subtypes, has_false_hero);
+            let mut m = self.generate_move(
+                i == 0,
+                config.include_subtypes,
+                has_false_hero,
+            );
 
             // Assign agents based on function and phase
             for moment in &mut m.moments {
@@ -626,15 +715,16 @@ impl Generator for RandomGen {
                         moment.agent = hero_id;
                         moment.patient = false_hero_id;
                     }
-                    _ => {
-                        match func.phase() {
-                            Phase::Donor | Phase::Struggle | Phase::Return
-                            | Phase::Recognition | Phase::Resolution => {
-                                moment.agent = hero_id;
-                            }
-                            _ => {}
+                    _ => match func.phase() {
+                        Phase::Donor
+                        | Phase::Struggle
+                        | Phase::Return
+                        | Phase::Recognition
+                        | Phase::Resolution => {
+                            moment.agent = hero_id;
                         }
-                    }
+                        _ => {}
+                    },
                 }
             }
 
@@ -643,13 +733,17 @@ impl Generator for RandomGen {
                 moment.function.function == NarrativeFunction::Departure
             });
             if has_departure && self.rng.gen_bool(0.2) {
-                let mut embedded = self.generate_embedded_move(config.include_subtypes);
+                let mut embedded =
+                    self.generate_embedded_move(config.include_subtypes);
                 // Assign agents to embedded move moments (hero for most phases)
                 for moment in &mut embedded.moments {
                     let func = moment.function.function;
                     match func.phase() {
-                        Phase::Donor | Phase::Struggle | Phase::Return
-                        | Phase::Recognition | Phase::Resolution => {
+                        Phase::Donor
+                        | Phase::Struggle
+                        | Phase::Return
+                        | Phase::Recognition
+                        | Phase::Resolution => {
                             moment.agent = hero_id;
                         }
                         _ => {}
@@ -709,7 +803,9 @@ impl TemplateGen {
                 }
                 TemplateElement::OneOf(choices) => {
                     if choices.is_empty() {
-                        return Err(GenError::TemplateError("empty OneOf".to_string()));
+                        return Err(GenError::TemplateError(
+                            "empty OneOf".to_string(),
+                        ));
                     }
                     let choice = choices[self.rng.gen_range(0..choices.len())];
                     functions.push(choice);
@@ -740,7 +836,10 @@ impl Generator for TemplateGen {
 
         // Create basic personae
         tale.personae.push(Persona::new(1u32, vec![Sphere::Hero]));
-        tale.personae.push(Persona::new(2u32, vec![Sphere::Villain]));
+        tale.personae.push(Persona::new(
+            2u32,
+            vec![Sphere::Villain],
+        ));
 
         // Create a single move with all functions
         let mut m = Move::new();
@@ -916,10 +1015,11 @@ mod tests {
             .with_seed(42);
 
         let tale = generator.generate(&config).unwrap();
-        let has_connective = tale
-            .all_moments()
-            .any(|m| m.connective.is_some());
-        assert!(has_connective, "Expected at least one connective in generated tale");
+        let has_connective = tale.all_moments().any(|m| m.connective.is_some());
+        assert!(
+            has_connective,
+            "Expected at least one connective in generated tale"
+        );
     }
 
     #[test]
@@ -933,22 +1033,23 @@ mod tests {
                 .with_move_count(1..2)
                 .with_seed(seed);
 
-            if let Ok(tale) = generator.generate(&config) {
-                if tale.moves.iter().any(|m| m.triplication) {
-                    found_triplication = true;
-                    break;
-                }
+            if let Ok(tale) = generator.generate(&config)
+                && tale.moves.iter().any(|m| m.triplication)
+            {
+                found_triplication = true;
+                break;
             }
         }
-        assert!(found_triplication, "Expected triplication in at least one of 100 seeds");
+        assert!(
+            found_triplication,
+            "Expected triplication in at least one of 100 seeds"
+        );
     }
 
     #[test]
     fn test_initial_situation_can_be_disabled() {
         let mut generator = RandomGen::with_seed(42);
-        let config = GenConfig::new()
-            .with_move_count(1..2)
-            .with_initial(false);
+        let config = GenConfig::new().with_move_count(1..2).with_initial(false);
 
         let tale = generator.generate(&config).unwrap();
         assert!(tale.initial.is_none());
@@ -967,20 +1068,28 @@ mod tests {
 
             if let Ok(tale) = generator.generate(&config) {
                 let has_negated = tale.all_moments().any(|m| {
-                    m.function.function == NarrativeFunction::HeroReaction && m.function.negated
+                    m.function.function == NarrativeFunction::HeroReaction
+                        && m.function.negated
                 });
                 if has_negated {
                     // Verify no Acquisition follows
                     let has_acquisition = tale.all_moments().any(|m| {
                         m.function.function == NarrativeFunction::Acquisition
                     });
-                    assert!(!has_acquisition, "Seed {}: negated HeroReaction should not have Acquisition", seed);
+                    assert!(
+                        !has_acquisition,
+                        "Seed {}: negated HeroReaction should not have Acquisition",
+                        seed
+                    );
                     found = true;
                     break;
                 }
             }
         }
-        assert!(found, "Expected negated HeroReaction in at least one of 200 seeds");
+        assert!(
+            found,
+            "Expected negated HeroReaction in at least one of 200 seeds"
+        );
     }
 
     #[test]
@@ -993,19 +1102,23 @@ mod tests {
                 .with_move_count(1..2)
                 .with_seed(seed);
 
-            if let Ok(tale) = generator.generate(&config) {
-                if tale.personae.iter().any(|p| p.spheres.len() > 1) {
-                    found_multi = true;
-                    break;
-                }
+            if let Ok(tale) = generator.generate(&config)
+                && tale.personae.iter().any(|p| p.spheres.len() > 1)
+            {
+                found_multi = true;
+                break;
             }
         }
-        assert!(found_multi, "Expected multi-sphere persona in at least one of 200 seeds");
+        assert!(
+            found_multi,
+            "Expected multi-sphere persona in at least one of 200 seeds"
+        );
     }
 
     #[test]
     fn test_agent_assignment_with_merged_spheres() {
-        // Verify agents are still assigned correctly when one persona holds multiple spheres
+        // Verify agents are still assigned correctly when one persona holds
+        // multiple spheres
         for seed in 0..200 {
             let mut generator = RandomGen::with_seed(seed);
             let config = GenConfig::new()
@@ -1017,18 +1130,32 @@ mod tests {
                 let merged = tale.personae.iter().find(|p| p.spheres.len() > 1);
                 if merged.is_some() {
                     // Verify hero is always assigned
-                    let hero_id = tale.personae.iter()
+                    let hero_id = tale
+                        .personae
+                        .iter()
                         .find(|p| p.spheres.contains(&Sphere::Hero))
                         .map(|p| p.id);
-                    assert!(hero_id.is_some(), "Seed {}: no hero found", seed);
+                    assert!(
+                        hero_id.is_some(),
+                        "Seed {}: no hero found",
+                        seed
+                    );
 
                     // Verify villainy agent is villain
-                    let villain_id = tale.personae.iter()
+                    let villain_id = tale
+                        .personae
+                        .iter()
                         .find(|p| p.spheres.contains(&Sphere::Villain))
                         .map(|p| p.id);
                     for moment in tale.all_moments() {
-                        if moment.function.function == NarrativeFunction::Villainy {
-                            assert_eq!(moment.agent, villain_id, "Seed {}: Villainy agent mismatch", seed);
+                        if moment.function.function
+                            == NarrativeFunction::Villainy
+                        {
+                            assert_eq!(
+                                moment.agent, villain_id,
+                                "Seed {}: Villainy agent mismatch",
+                                seed
+                            );
                         }
                     }
                     return;
@@ -1057,11 +1184,19 @@ mod tests {
                     m.function.function == NarrativeFunction::Delivery
                 });
                 if has_recon {
-                    assert!(has_delivery, "Seed {}: Reconnaissance without Delivery", seed);
+                    assert!(
+                        has_delivery,
+                        "Seed {}: Reconnaissance without Delivery",
+                        seed
+                    );
                     found_recon = true;
                 }
                 if has_delivery {
-                    assert!(has_recon, "Seed {}: Delivery without Reconnaissance", seed);
+                    assert!(
+                        has_recon,
+                        "Seed {}: Delivery without Reconnaissance",
+                        seed
+                    );
                 }
 
                 let has_trickery = tale.all_moments().any(|m| {
@@ -1071,16 +1206,30 @@ mod tests {
                     m.function.function == NarrativeFunction::Complicity
                 });
                 if has_trickery {
-                    assert!(has_complicity, "Seed {}: Trickery without Complicity", seed);
+                    assert!(
+                        has_complicity,
+                        "Seed {}: Trickery without Complicity",
+                        seed
+                    );
                     found_trickery = true;
                 }
                 if has_complicity {
-                    assert!(has_trickery, "Seed {}: Complicity without Trickery", seed);
+                    assert!(
+                        has_trickery,
+                        "Seed {}: Complicity without Trickery",
+                        seed
+                    );
                 }
             }
         }
-        assert!(found_recon, "Expected Reconnaissance+Delivery in at least one of 200 seeds");
-        assert!(found_trickery, "Expected Trickery+Complicity in at least one of 200 seeds");
+        assert!(
+            found_recon,
+            "Expected Reconnaissance+Delivery in at least one of 200 seeds"
+        );
+        assert!(
+            found_trickery,
+            "Expected Trickery+Complicity in at least one of 200 seeds"
+        );
     }
 
     #[test]
@@ -1095,7 +1244,10 @@ mod tests {
                 .with_seed(seed);
 
             if let Ok(tale) = generator.generate(&config) {
-                let has_false_hero = tale.personae.iter().any(|p| p.spheres.contains(&Sphere::FalseHero));
+                let has_false_hero = tale
+                    .personae
+                    .iter()
+                    .any(|p| p.spheres.contains(&Sphere::FalseHero));
                 let has_claims = tale.all_moments().any(|m| {
                     m.function.function == NarrativeFunction::UnfoundedClaims
                 });
@@ -1105,7 +1257,10 @@ mod tests {
                 }
             }
         }
-        assert!(found, "Expected FalseHero with recognition functions in at least one of 200 seeds");
+        assert!(
+            found,
+            "Expected FalseHero with recognition functions in at least one of 200 seeds"
+        );
     }
 
     #[test]
@@ -1124,31 +1279,49 @@ mod tests {
                         found = true;
                         // Verify embedded move structure
                         let em = &mov.embedded_moves[0];
-                        assert_eq!(em.relation, crate::tale::MoveRelation::Embedded);
+                        assert_eq!(
+                            em.relation,
+                            crate::tale::MoveRelation::Embedded
+                        );
                         // Should start with Lack or Villainy
                         let first_func = em.moments[0].function.function;
                         assert!(
                             first_func == NarrativeFunction::Lack
                                 || first_func == NarrativeFunction::Villainy,
                             "Seed {}: embedded move should start with Lack or Villainy, got {:?}",
-                            seed, first_func
+                            seed,
+                            first_func
                         );
                         // Should always have Liquidation and Return
                         let has_liquidation = em.moments.iter().any(|m| {
-                            m.function.function == NarrativeFunction::Liquidation
+                            m.function.function
+                                == NarrativeFunction::Liquidation
                         });
                         let has_return = em.moments.iter().any(|m| {
                             m.function.function == NarrativeFunction::Return
                         });
-                        assert!(has_liquidation, "Seed {}: embedded move should have Liquidation", seed);
-                        assert!(has_return, "Seed {}: embedded move should have Return", seed);
+                        assert!(
+                            has_liquidation,
+                            "Seed {}: embedded move should have Liquidation",
+                            seed
+                        );
+                        assert!(
+                            has_return,
+                            "Seed {}: embedded move should have Return",
+                            seed
+                        );
                         break;
                     }
                 }
-                if found { break; }
+                if found {
+                    break;
+                }
             }
         }
-        assert!(found, "Expected embedded move in at least one of 300 seeds");
+        assert!(
+            found,
+            "Expected embedded move in at least one of 300 seeds"
+        );
     }
 
     #[test]
@@ -1163,20 +1336,29 @@ mod tests {
 
             if let Ok(tale) = generator.generate(&config) {
                 let merged = tale.personae.iter().find(|p| {
-                    p.spheres.contains(&Sphere::Hero) && p.spheres.contains(&Sphere::Dispatcher)
+                    p.spheres.contains(&Sphere::Hero)
+                        && p.spheres.contains(&Sphere::Dispatcher)
                 });
                 if merged.is_some() {
                     // Verify no separate Dispatcher persona exists
                     let separate_dispatcher = tale.personae.iter().any(|p| {
-                        p.spheres.contains(&Sphere::Dispatcher) && !p.spheres.contains(&Sphere::Hero)
+                        p.spheres.contains(&Sphere::Dispatcher)
+                            && !p.spheres.contains(&Sphere::Hero)
                     });
-                    assert!(!separate_dispatcher, "Seed {}: merged Hero+Dispatcher but separate Dispatcher exists", seed);
+                    assert!(
+                        !separate_dispatcher,
+                        "Seed {}: merged Hero+Dispatcher but separate Dispatcher exists",
+                        seed
+                    );
                     found = true;
                     break;
                 }
             }
         }
-        assert!(found, "Expected Hero+Dispatcher merge in at least one of 500 seeds");
+        assert!(
+            found,
+            "Expected Hero+Dispatcher merge in at least one of 500 seeds"
+        );
     }
 
     #[test]
@@ -1191,7 +1373,8 @@ mod tests {
 
             if let Ok(tale) = generator.generate(&config) {
                 let merged = tale.personae.iter().find(|p| {
-                    p.spheres.contains(&Sphere::Villain) && p.spheres.contains(&Sphere::Donor)
+                    p.spheres.contains(&Sphere::Villain)
+                        && p.spheres.contains(&Sphere::Donor)
                 });
                 if merged.is_some() {
                     found = true;
@@ -1199,12 +1382,16 @@ mod tests {
                 }
             }
         }
-        assert!(found, "Expected Villain+Donor merge in at least one of 500 seeds");
+        assert!(
+            found,
+            "Expected Villain+Donor merge in at least one of 500 seeds"
+        );
     }
 
     #[test]
     fn test_sphere_merging_disabled() {
-        // Generate with merging disabled — no persona should have multiple spheres
+        // Generate with merging disabled — no persona should have multiple
+        // spheres
         for seed in 0..50 {
             let mut generator = RandomGen::with_seed(seed);
             let config = GenConfig::new()
@@ -1216,9 +1403,12 @@ mod tests {
             if let Ok(tale) = generator.generate(&config) {
                 for persona in &tale.personae {
                     assert_eq!(
-                        persona.spheres.len(), 1,
+                        persona.spheres.len(),
+                        1,
                         "Seed {}: persona {} has {} spheres with merging disabled",
-                        seed, persona.id.0, persona.spheres.len()
+                        seed,
+                        persona.id.0,
+                        persona.spheres.len()
                     );
                 }
             }
@@ -1243,16 +1433,41 @@ mod tests {
                 if has_branding {
                     // Verify Branding appears between Struggle and Victory
                     for mov in &tale.moves {
-                        let funcs: Vec<_> = mov.moments.iter()
+                        let funcs: Vec<_> = mov
+                            .moments
+                            .iter()
                             .map(|m| m.function.function)
                             .collect();
-                        if let Some(brand_pos) = funcs.iter().position(|f| *f == NarrativeFunction::Branding) {
-                            let struggle_pos = funcs.iter().position(|f| *f == NarrativeFunction::Struggle);
-                            let victory_pos = funcs.iter().position(|f| *f == NarrativeFunction::Victory);
-                            assert!(struggle_pos.is_some(), "Seed {}: Branding without Struggle", seed);
-                            assert!(victory_pos.is_some(), "Seed {}: Branding without Victory", seed);
-                            assert!(brand_pos > struggle_pos.unwrap(), "Seed {}: Branding before Struggle", seed);
-                            assert!(brand_pos < victory_pos.unwrap(), "Seed {}: Branding after Victory", seed);
+                        if let Some(brand_pos) = funcs
+                            .iter()
+                            .position(|f| *f == NarrativeFunction::Branding)
+                        {
+                            let struggle_pos = funcs.iter().position(|f| {
+                                *f == NarrativeFunction::Struggle
+                            });
+                            let victory_pos = funcs
+                                .iter()
+                                .position(|f| *f == NarrativeFunction::Victory);
+                            assert!(
+                                struggle_pos.is_some(),
+                                "Seed {}: Branding without Struggle",
+                                seed
+                            );
+                            assert!(
+                                victory_pos.is_some(),
+                                "Seed {}: Branding without Victory",
+                                seed
+                            );
+                            assert!(
+                                brand_pos > struggle_pos.unwrap(),
+                                "Seed {}: Branding before Struggle",
+                                seed
+                            );
+                            assert!(
+                                brand_pos < victory_pos.unwrap(),
+                                "Seed {}: Branding after Victory",
+                                seed
+                            );
                         }
                     }
                     found = true;
@@ -1260,12 +1475,16 @@ mod tests {
                 }
             }
         }
-        assert!(found, "Expected Branding in at least one of 300 seeds");
+        assert!(
+            found,
+            "Expected Branding in at least one of 300 seeds"
+        );
     }
 
     #[test]
     fn test_negation_variety() {
-        // Verify that negation applies to different functions, not just HeroReaction
+        // Verify that negation applies to different functions, not just
+        // HeroReaction
         let mut negated_functions: HashSet<NarrativeFunction> = HashSet::new();
         for seed in 0..500 {
             let mut generator = RandomGen::with_seed(seed);
@@ -1292,7 +1511,8 @@ mod tests {
 
     #[test]
     fn test_villainy_liquidation_coherence() {
-        // When Villainy subtype is "kidnapping" (1), Liquidation should be "captive freed" (10)
+        // When Villainy subtype is "kidnapping" (1), Liquidation should be
+        // "captive freed" (10)
         let mut found = false;
         for seed in 0..500 {
             let mut generator = RandomGen::with_seed(seed);
@@ -1310,23 +1530,30 @@ mod tests {
                     let liquidation = mov.moments.iter().find(|m| {
                         m.function.function == NarrativeFunction::Liquidation
                     });
-                    if let (Some(v), Some(l)) = (villainy, liquidation) {
-                        if v.function.subtype == Some(1) {
-                            // Kidnapping → captive freed
-                            assert_eq!(
-                                l.function.subtype, Some(10),
-                                "Seed {}: Villainy kidnapping (1) should map to Liquidation captive freed (10), got {:?}",
-                                seed, l.function.subtype
-                            );
-                            found = true;
-                            break;
-                        }
+                    if let (Some(v), Some(l)) = (villainy, liquidation)
+                        && v.function.subtype == Some(1)
+                    {
+                        // Kidnapping → captive freed
+                        assert_eq!(
+                            l.function.subtype,
+                            Some(10),
+                            "Seed {}: Villainy kidnapping (1) should map to Liquidation captive freed (10), got {:?}",
+                            seed,
+                            l.function.subtype
+                        );
+                        found = true;
+                        break;
                     }
                 }
-                if found { break; }
+                if found {
+                    break;
+                }
             }
         }
-        assert!(found, "Expected Villainy kidnapping → Liquidation captive freed in at least one of 500 seeds");
+        assert!(
+            found,
+            "Expected Villainy kidnapping → Liquidation captive freed in at least one of 500 seeds"
+        );
     }
 
     #[test]
@@ -1343,17 +1570,26 @@ mod tests {
             if let Ok(tale) = generator.generate(&config) {
                 for mov in &tale.moves {
                     for em in &mov.embedded_moves {
-                        if em.moments[0].function.function == NarrativeFunction::Villainy {
+                        if em.moments[0].function.function
+                            == NarrativeFunction::Villainy
+                        {
                             found = true;
                             break;
                         }
                     }
-                    if found { break; }
+                    if found {
+                        break;
+                    }
                 }
-                if found { break; }
+                if found {
+                    break;
+                }
             }
         }
-        assert!(found, "Expected Villainy-based embedded move in at least one of 500 seeds");
+        assert!(
+            found,
+            "Expected Villainy-based embedded move in at least one of 500 seeds"
+        );
     }
 
     #[test]
@@ -1381,11 +1617,18 @@ mod tests {
                             break;
                         }
                     }
-                    if found { break; }
+                    if found {
+                        break;
+                    }
                 }
-                if found { break; }
+                if found {
+                    break;
+                }
             }
         }
-        assert!(found, "Expected embedded move with Pursuit+Rescue in at least one of 500 seeds");
+        assert!(
+            found,
+            "Expected embedded move with Pursuit+Rescue in at least one of 500 seeds"
+        );
     }
 }

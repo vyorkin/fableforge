@@ -1,4 +1,7 @@
-FROM rust:nightly-slim AS builder
+FROM rust:slim AS builder
+
+# Install nightly toolchain as required by rust-toolchain.toml
+RUN rustup toolchain install nightly && rustup default nightly
 
 WORKDIR /app
 
@@ -6,10 +9,12 @@ WORKDIR /app
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY crates/fableforge-core/Cargo.toml crates/fableforge-core/Cargo.toml
 COPY crates/fableforge-llm/Cargo.toml crates/fableforge-llm/Cargo.toml
+COPY crates/fableforge-tg/Cargo.toml crates/fableforge-tg/Cargo.toml
 COPY cli/fableforge/Cargo.toml cli/fableforge/Cargo.toml
 
-RUN mkdir -p crates/fableforge-core/src crates/fableforge-llm/src cli/fableforge/src \
+RUN mkdir -p crates/fableforge-core/src crates/fableforge-llm/src crates/fableforge-tg/src cli/fableforge/src \
     && echo "fn main() {}" > cli/fableforge/src/main.rs \
+    && echo "fn main() {}" > crates/fableforge-tg/src/main.rs \
     && touch crates/fableforge-core/src/lib.rs \
     && touch crates/fableforge-llm/src/lib.rs \
     && cargo build --release --workspace \
@@ -22,6 +27,7 @@ COPY cli cli
 # Touch source files so cargo knows they changed
 RUN touch crates/fableforge-core/src/lib.rs \
     crates/fableforge-llm/src/lib.rs \
+    crates/fableforge-tg/src/main.rs \
     cli/fableforge/src/main.rs \
     && cargo build --release
 
