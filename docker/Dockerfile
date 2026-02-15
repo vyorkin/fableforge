@@ -3,6 +3,11 @@ FROM rust:slim AS builder
 # Install nightly toolchain as required by rust-toolchain.toml
 RUN rustup toolchain install nightly && rustup default nightly
 
+# Install build dependencies for native TLS (required by teloxide)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends pkg-config libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Cache dependencies: copy manifests first, build a dummy to cache deps
