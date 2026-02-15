@@ -1,6 +1,6 @@
 # FableForge
 
-Propp-morphology-based fairy tale generator. Combines algorithmic structure generation ([Vladimir Propp's 31 narrative functions](https://en.wikipedia.org/wiki/Vladimir_Propp#Morphology_of_the_Folk_Tale)) with LLM-based narrative text generation via the Claude API.
+Propp-morphology-based fairy tale generator. Combines algorithmic structure generation ([Vladimir Propp's 32 narrative functions](https://en.wikipedia.org/wiki/Vladimir_Propp#Morphology_of_the_Folk_Tale)) with LLM-based narrative text generation via the Claude API.
 
 ## How it works
 
@@ -31,6 +31,7 @@ export ANTHROPIC_API_KEY="sk-..."
 cargo run -- generate --moves 2
 cargo run -- generate --genre horror --tone dark --setting "abandoned castle"
 cargo run -- generate --era "19th century" --genre detective --model claude-opus-4-20250514
+cargo run -- generate --provider openrouter --model anthropic/claude-sonnet-4
 ```
 
 #### Style options
@@ -43,6 +44,7 @@ cargo run -- generate --era "19th century" --genre detective --model claude-opus
 | `-e, --era` | Era | ancient times, 19th century, future |
 | `-c, --custom` | Custom instructions | free-form text |
 | `-M, --model` | Claude model | claude-sonnet-4-20250514 (default) |
+| `-P, --provider` | LLM provider | claude (default), openrouter |
 
 ### Docker
 
@@ -54,15 +56,18 @@ docker run --rm -e ANTHROPIC_API_KEY fableforge generate --moves 1
 
 ## Architecture
 
-Three crates with a clear dependency chain:
+Four crates:
 
 ```
 cli/fableforge (binary) → fableforge-llm → fableforge-core
+crates/fableforge-tg (binary) → fableforge-llm → fableforge-core
 ```
 
-**fableforge-core** — morphological engine. Pure data structures and algorithms, no network, no async. 32 narrative functions, 168 subtypes, 7 character spheres, sequence validation, Propp's symbolic notation parser (`α β¹ γ A¹ ↑`).
+**fableforge-core** — morphological engine. Pure data structures and algorithms, no network, no async. 32 narrative functions, 168 subtypes, 7 character spheres, function negation, coherent subtype dependencies, sequence validation, Propp's symbolic notation parser (`α β¹ γ A¹ ↑`).
 
-**fableforge-llm** — Claude API integration. `LlmClient` trait for provider abstraction, `StoryComposer` for two-phase generation, `PromptBuilder` with `StyleConfig`, episode segmentation by Propp's phases.
+**fableforge-llm** — LLM integration (Claude API, OpenRouter). `LlmClient` trait for provider abstraction, `StoryComposer` for two-phase generation, `PromptBuilder` with `StyleConfig`, episode segmentation by Propp's phases, coherence evaluation.
+
+**fableforge-tg** — Telegram bot for interactive tale generation via inline keyboards.
 
 **cli/fableforge** — CLI with two subcommands: `generate` and `structure`.
 
