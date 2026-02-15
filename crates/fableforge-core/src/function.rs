@@ -1,7 +1,8 @@
 //! Narrative functions of dramatis personae (функции действующих лиц).
 //!
 //! Based on Vladimir Propp's "Morphology of the Folktale" (1928).
-//! The 32 narrative functions represent atomic plot elements in the structure of fairy tales.
+//! The 32 narrative functions represent atomic plot elements in the structure
+//! of fairy tales.
 
 use serde::{Deserialize, Serialize};
 
@@ -195,7 +196,9 @@ impl NarrativeFunction {
                 NarrativeFunction::Return => "Return",
                 NarrativeFunction::Pursuit => "Pursuit",
                 NarrativeFunction::Rescue => "Rescue",
-                NarrativeFunction::UnrecognizedArrival => "Unrecognized Arrival",
+                NarrativeFunction::UnrecognizedArrival => {
+                    "Unrecognized Arrival"
+                }
                 NarrativeFunction::UnfoundedClaims => "Unfounded Claims",
                 NarrativeFunction::DifficultTask => "Difficult Task",
                 NarrativeFunction::Solution => "Solution",
@@ -289,13 +292,15 @@ impl NarrativeFunction {
 
     /// Whether function is mandatory for a minimal move (обязательная функция).
     ///
-    /// According to Propp, a minimal move requires at least villainy (A) or lack (a),
-    /// and liquidation (K) to form a complete narrative arc.
+    /// According to Propp, a minimal move requires at least villainy (A) or
+    /// lack (a), and liquidation (K) to form a complete narrative arc.
     #[must_use]
     pub const fn is_core(&self) -> bool {
         matches!(
             self,
-            NarrativeFunction::Villainy | NarrativeFunction::Lack | NarrativeFunction::Liquidation
+            NarrativeFunction::Villainy
+                | NarrativeFunction::Lack
+                | NarrativeFunction::Liquidation
         )
     }
 
@@ -439,7 +444,10 @@ impl NarrativeFunctionInstance {
 
     /// Create a function instance with a subtype.
     #[must_use]
-    pub const fn with_subtype(function: NarrativeFunction, subtype: u8) -> Self {
+    pub const fn with_subtype(
+        function: NarrativeFunction,
+        subtype: u8,
+    ) -> Self {
         Self {
             function,
             subtype: Some(subtype),
@@ -478,7 +486,8 @@ impl NarrativeFunctionInstance {
     pub fn description(&self, lang: Lang) -> (String, Option<String>) {
         let name = self.function.name(lang).to_string();
         let subtype_desc = self.subtype.and_then(|idx| {
-            crate::subtype::subtype(self.function, idx).map(|info| info.name(lang).to_string())
+            crate::subtype::subtype(self.function, idx)
+                .map(|info| info.name(lang).to_string())
         });
         (name, subtype_desc)
     }
@@ -486,7 +495,8 @@ impl NarrativeFunctionInstance {
     /// Get full description as a single string.
     ///
     /// Format: "Function name — subtype description" or just "Function name".
-    /// Negated functions are prefixed with "Невыполнение:" (Ru) or "Failure:" (En).
+    /// Negated functions are prefixed with "Невыполнение:" (Ru) or "Failure:"
+    /// (En).
     #[must_use]
     pub fn full_description(&self, lang: Lang) -> String {
         let (name, subtype_desc) = self.description(lang);
@@ -514,7 +524,8 @@ impl From<NarrativeFunction> for NarrativeFunctionInstance {
 
 /// Convert a digit to superscript.
 fn superscript(n: u8) -> String {
-    const SUPERSCRIPTS: [char; 10] = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
+    const SUPERSCRIPTS: [char; 10] =
+        ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
     if n < 10 {
         SUPERSCRIPTS[n as usize].to_string()
     } else {
@@ -540,28 +551,64 @@ mod tests {
 
     #[test]
     fn test_function_symbols() {
-        assert_eq!(NarrativeFunction::Absentation.symbol(), "α");
-        assert_eq!(NarrativeFunction::Villainy.symbol(), "A");
-        assert_eq!(NarrativeFunction::Departure.symbol(), "↑");
+        assert_eq!(
+            NarrativeFunction::Absentation.symbol(),
+            "α"
+        );
+        assert_eq!(
+            NarrativeFunction::Villainy.symbol(),
+            "A"
+        );
+        assert_eq!(
+            NarrativeFunction::Departure.symbol(),
+            "↑"
+        );
         assert_eq!(NarrativeFunction::Return.symbol(), "↓");
         assert_eq!(NarrativeFunction::Wedding.symbol(), "W");
     }
 
     #[test]
     fn test_function_names() {
-        assert_eq!(NarrativeFunction::Villainy.name(Lang::En), "Villainy");
-        assert_eq!(NarrativeFunction::Villainy.name(Lang::Ru), "Вредительство");
+        assert_eq!(
+            NarrativeFunction::Villainy.name(Lang::En),
+            "Villainy"
+        );
+        assert_eq!(
+            NarrativeFunction::Villainy.name(Lang::Ru),
+            "Вредительство"
+        );
     }
 
     #[test]
     fn test_function_phases() {
-        assert_eq!(NarrativeFunction::Absentation.phase(), Phase::Preparation);
-        assert_eq!(NarrativeFunction::Villainy.phase(), Phase::Complication);
-        assert_eq!(NarrativeFunction::DonorTest.phase(), Phase::Donor);
-        assert_eq!(NarrativeFunction::Struggle.phase(), Phase::Struggle);
-        assert_eq!(NarrativeFunction::Return.phase(), Phase::Return);
-        assert_eq!(NarrativeFunction::DifficultTask.phase(), Phase::Recognition);
-        assert_eq!(NarrativeFunction::Wedding.phase(), Phase::Resolution);
+        assert_eq!(
+            NarrativeFunction::Absentation.phase(),
+            Phase::Preparation
+        );
+        assert_eq!(
+            NarrativeFunction::Villainy.phase(),
+            Phase::Complication
+        );
+        assert_eq!(
+            NarrativeFunction::DonorTest.phase(),
+            Phase::Donor
+        );
+        assert_eq!(
+            NarrativeFunction::Struggle.phase(),
+            Phase::Struggle
+        );
+        assert_eq!(
+            NarrativeFunction::Return.phase(),
+            Phase::Return
+        );
+        assert_eq!(
+            NarrativeFunction::DifficultTask.phase(),
+            Phase::Recognition
+        );
+        assert_eq!(
+            NarrativeFunction::Wedding.phase(),
+            Phase::Resolution
+        );
     }
 
     #[test]
@@ -575,11 +622,17 @@ mod tests {
 
     #[test]
     fn test_function_index() {
-        assert_eq!(NarrativeFunction::Absentation.index(), 0);
+        assert_eq!(
+            NarrativeFunction::Absentation.index(),
+            0
+        );
         assert_eq!(NarrativeFunction::Wedding.index(), 31);
         // Verify repr(u8) works correctly
         assert_eq!(u8::from(NarrativeFunction::Villainy), 7);
-        assert_eq!(usize::from(NarrativeFunction::Wedding), 31);
+        assert_eq!(
+            usize::from(NarrativeFunction::Wedding),
+            31
+        );
     }
 
     #[test]
@@ -600,7 +653,10 @@ mod tests {
             NarrativeFunction::from_symbol("Pr"),
             Some(NarrativeFunction::Pursuit)
         );
-        assert_eq!(NarrativeFunction::from_symbol("invalid"), None);
+        assert_eq!(
+            NarrativeFunction::from_symbol("invalid"),
+            None
+        );
     }
 
     #[test]
@@ -608,10 +664,14 @@ mod tests {
         let f1 = NarrativeFunctionInstance::new(NarrativeFunction::Villainy);
         assert_eq!(f1.to_notation(), "A");
 
-        let f2 = NarrativeFunctionInstance::with_subtype(NarrativeFunction::DonorTest, 2);
+        let f2 = NarrativeFunctionInstance::with_subtype(
+            NarrativeFunction::DonorTest,
+            2,
+        );
         assert_eq!(f2.to_notation(), "D²");
 
-        let f3 = NarrativeFunctionInstance::negated(NarrativeFunction::Mediation);
+        let f3 =
+            NarrativeFunctionInstance::negated(NarrativeFunction::Mediation);
         assert_eq!(f3.to_notation(), "neg-B");
     }
 
@@ -625,8 +685,14 @@ mod tests {
 
     #[test]
     fn test_phase_names() {
-        assert_eq!(Phase::Preparation.name(Lang::En), "Preparation");
-        assert_eq!(Phase::Preparation.name(Lang::Ru), "Подготовительная часть");
+        assert_eq!(
+            Phase::Preparation.name(Lang::En),
+            "Preparation"
+        );
+        assert_eq!(
+            Phase::Preparation.name(Lang::Ru),
+            "Подготовительная часть"
+        );
     }
 
     #[test]
@@ -639,25 +705,44 @@ mod tests {
 
     #[test]
     fn test_function_instance_description_with_subtype() {
-        let f = NarrativeFunctionInstance::with_subtype(NarrativeFunction::Villainy, 1);
+        let f = NarrativeFunctionInstance::with_subtype(
+            NarrativeFunction::Villainy,
+            1,
+        );
         let (name, subtype) = f.description(Lang::Ru);
         assert_eq!(name, "Вредительство");
-        assert_eq!(subtype, Some("Похищение человека".to_string()));
+        assert_eq!(
+            subtype,
+            Some("Похищение человека".to_string())
+        );
     }
 
     #[test]
     fn test_function_instance_full_description() {
         let f1 = NarrativeFunctionInstance::new(NarrativeFunction::DonorTest);
-        assert_eq!(f1.full_description(Lang::Ru), "Испытание дарителя");
+        assert_eq!(
+            f1.full_description(Lang::Ru),
+            "Испытание дарителя"
+        );
 
-        let f2 = NarrativeFunctionInstance::with_subtype(NarrativeFunction::DonorTest, 8);
-        assert_eq!(f2.full_description(Lang::Ru), "Испытание дарителя — Загадка");
-        assert_eq!(f2.full_description(Lang::En), "Donor Test — Riddle");
+        let f2 = NarrativeFunctionInstance::with_subtype(
+            NarrativeFunction::DonorTest,
+            8,
+        );
+        assert_eq!(
+            f2.full_description(Lang::Ru),
+            "Испытание дарителя — Загадка"
+        );
+        assert_eq!(
+            f2.full_description(Lang::En),
+            "Donor Test — Riddle"
+        );
     }
 
     #[test]
     fn test_negated_full_description() {
-        let f = NarrativeFunctionInstance::negated(NarrativeFunction::HeroReaction);
+        let f =
+            NarrativeFunctionInstance::negated(NarrativeFunction::HeroReaction);
         assert!(f.full_description(Lang::Ru).starts_with("Невыполнение:"));
         assert!(f.full_description(Lang::En).starts_with("Failure:"));
         assert!(f.full_description(Lang::Ru).contains("Реакция героя"));

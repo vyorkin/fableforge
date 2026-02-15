@@ -4,10 +4,9 @@ mod state;
 
 use std::sync::Arc;
 
+use handlers::{Deps, LlmProvider};
 use teloxide::prelude::*;
 use tracing::info;
-
-use handlers::{Deps, LlmProvider};
 
 #[tokio::main]
 async fn main() {

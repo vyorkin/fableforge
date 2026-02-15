@@ -37,24 +37,27 @@ impl Corpus {
     /// Load corpus from embedded TOML data.
     #[must_use]
     pub fn load() -> Self {
-        let data: CorpusData =
-            toml::from_str(CORPUS_TOML).expect("embedded connectives.toml is invalid");
+        let data: CorpusData = toml::from_str(CORPUS_TOML)
+            .expect("embedded connectives.toml is invalid");
         Self { data }
     }
 
     /// Pick a random motivation.
     pub fn pick_motivation(&self, rng: &mut impl Rng) -> &str {
-        &self.data.motivations.items[rng.gen_range(0..self.data.motivations.items.len())]
+        &self.data.motivations.items
+            [rng.gen_range(0..self.data.motivations.items.len())]
     }
 
     /// Pick a random transference.
     pub fn pick_transference(&self, rng: &mut impl Rng) -> &str {
-        &self.data.transferences.items[rng.gen_range(0..self.data.transferences.items.len())]
+        &self.data.transferences.items
+            [rng.gen_range(0..self.data.transferences.items.len())]
     }
 
     /// Pick a random temporal.
     pub fn pick_temporal(&self, rng: &mut impl Rng) -> &str {
-        &self.data.temporals.items[rng.gen_range(0..self.data.temporals.items.len())]
+        &self.data.temporals.items
+            [rng.gen_range(0..self.data.temporals.items.len())]
     }
 
     /// Pick a random time phrase for initial situation.
@@ -65,21 +68,24 @@ impl Corpus {
 
     /// Pick a random family context for initial situation.
     pub fn pick_family_context(&self, rng: &mut impl Rng) -> &str {
-        &self.data.initial_situation.family_contexts.items
-            [rng.gen_range(0..self.data.initial_situation.family_contexts.items.len())]
+        &self.data.initial_situation.family_contexts.items[rng.gen_range(
+            0..self.data.initial_situation.family_contexts.items.len(),
+        )]
     }
 
     /// Pick a random prosperity state for initial situation.
     pub fn pick_prosperity_state(&self, rng: &mut impl Rng) -> &str {
-        &self.data.initial_situation.prosperity_states.items
-            [rng.gen_range(0..self.data.initial_situation.prosperity_states.items.len())]
+        &self.data.initial_situation.prosperity_states.items[rng.gen_range(
+            0..self.data.initial_situation.prosperity_states.items.len(),
+        )]
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rand::rngs::StdRng;
+
+    use super::*;
 
     #[test]
     fn test_corpus_loads() {
@@ -88,8 +94,12 @@ mod tests {
         assert!(corpus.data.transferences.items.len() >= 18);
         assert!(corpus.data.temporals.items.len() >= 16);
         assert!(corpus.data.initial_situation.times.items.len() >= 8);
-        assert!(corpus.data.initial_situation.family_contexts.items.len() >= 10);
-        assert!(corpus.data.initial_situation.prosperity_states.items.len() >= 8);
+        assert!(
+            corpus.data.initial_situation.family_contexts.items.len() >= 10
+        );
+        assert!(
+            corpus.data.initial_situation.prosperity_states.items.len() >= 8
+        );
     }
 
     #[test]

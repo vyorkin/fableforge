@@ -54,10 +54,18 @@ pub mod evaluate;
 pub mod prompt;
 
 // Re-exports for convenience
-pub use client::{AnyClient, ClaudeClient, LlmClient, MockClient, OpenRouterClient, RetryConfig};
+pub use client::{
+    AnyClient, ClaudeClient, LlmClient, MockClient, OpenRouterClient,
+    RetryConfig,
+};
 pub use composer::StoryComposer;
-pub use context::{CharacterResponse, EpisodeResult, GeneratedCharacter, GeneratedStory, TaleContext};
+pub use context::{
+    CharacterResponse, EpisodeResult, GeneratedCharacter, GeneratedStory,
+    TaleContext,
+};
 pub use episode::{Episode, EpisodeKind};
 pub use error::LlmError;
-pub use evaluate::{CoherenceDimensions, CoherenceEvaluator, CoherenceReport, EpisodeNote};
+pub use evaluate::{
+    CoherenceDimensions, CoherenceEvaluator, CoherenceReport, EpisodeNote,
+};
 pub use prompt::{PromptBuilder, StyleConfig};

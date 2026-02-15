@@ -1,5 +1,9 @@
 use std::sync::Arc;
 
+use fableforge_core::{Formula, GenConfig, Generator, Lang, RandomGen};
+use fableforge_llm::{
+    AnyClient, ClaudeClient, OpenRouterClient, StoryComposer, StyleConfig,
+};
 use teloxide::{
     dispatching::dialogue::InMemStorage,
     payloads::SendMessageSetters,
@@ -9,11 +13,10 @@ use teloxide::{
 };
 use tracing::{error, info};
 
-use fableforge_core::{Formula, GenConfig, Generator, Lang, RandomGen};
-use fableforge_llm::{AnyClient, ClaudeClient, OpenRouterClient, StoryComposer, StyleConfig};
-
-use crate::format;
-use crate::state::{BotState, GenerateConfig};
+use crate::{
+    format,
+    state::{BotState, GenerateConfig},
+};
 
 type BotDialogue = Dialogue<BotState, InMemStorage<BotState>>;
 
@@ -80,11 +83,12 @@ pub async fn run(bot: Bot, deps: Arc<Deps>) {
 
     Dispatcher::builder(
         bot,
-        dptree::entry()
-            .branch(handler)
-            .branch(callback_handler),
+        dptree::entry().branch(handler).branch(callback_handler),
     )
-    .dependencies(dptree::deps![InMemStorage::<BotState>::new(), deps])
+    .dependencies(dptree::deps![
+        InMemStorage::<BotState>::new(),
+        deps
+    ])
     .enable_ctrlc_handler()
     .build()
     .dispatch()
@@ -113,8 +117,11 @@ async fn handle_command(
             dialogue.update(BotState::Start).await?;
         }
         Command::Help => {
-            bot.send_message(msg.chat.id, Command::descriptions().to_string())
-                .await?;
+            bot.send_message(
+                msg.chat.id,
+                Command::descriptions().to_string(),
+            )
+            .await?;
         }
         Command::Generate => {
             if deps.llm_provider.is_none() {
@@ -195,11 +202,7 @@ async fn handle_callback(
     bot.answer_callback_query(&q.id).await?;
 
     let data = q.data.unwrap_or_default();
-    let chat_id = q
-        .message
-        .as_ref()
-        .map(|m| m.chat().id)
-        .unwrap_or(ChatId(0));
+    let chat_id = q.message.as_ref().map(|m| m.chat().id).unwrap_or(ChatId(0));
     let state = dialogue.get().await?.unwrap_or_default();
 
     match state {
@@ -214,9 +217,12 @@ async fn handle_callback(
         BotState::SelectTone { genre } => {
             let tone = parse_callback_value(&data, "tone");
             let keyboard = moves_keyboard();
-            bot.send_message(chat_id, "Количество ходов (сюжетных арок):")
-                .reply_markup(keyboard)
-                .await?;
+            bot.send_message(
+                chat_id,
+                "Количество ходов (сюжетных арок):",
+            )
+            .reply_markup(keyboard)
+            .await?;
             dialogue
                 .update(BotState::SelectMoves { genre, tone })
                 .await?;
@@ -296,10 +302,7 @@ fn tone_keyboard() -> InlineKeyboardMarkup {
             InlineKeyboardButton::callback("Ироничный", "tone:ироничный"),
             InlineKeyboardButton::callback("Эпический", "tone:эпический"),
         ],
-        vec![InlineKeyboardButton::callback(
-            "Пропустить",
-            "tone:skip",
-        )],
+        vec![InlineKeyboardButton::callback("Пропустить", "tone:skip")],
     ])
 }
 
@@ -312,10 +315,9 @@ fn moves_keyboard() -> InlineKeyboardMarkup {
 }
 
 fn seed_keyboard() -> InlineKeyboardMarkup {
-    InlineKeyboardMarkup::new(vec![vec![InlineKeyboardButton::callback(
-        "Случайный",
-        "seed:skip",
-    )]])
+    InlineKeyboardMarkup::new(vec![vec![
+        InlineKeyboardButton::callback("Случайный", "seed:skip"),
+    ]])
 }
 
 // ── Generation logic ───────────────────────────────────────
@@ -329,8 +331,11 @@ async fn do_generate(
     let provider = match deps.llm_provider {
         Some(ref p) => p,
         None => {
-            bot.send_message(chat_id, "API-ключ не настроен. Доступна только /structure.")
-                .await?;
+            bot.send_message(
+                chat_id,
+                "API-ключ не настроен. Доступна только /structure.",
+            )
+            .await?;
             return Ok(());
         }
     };
@@ -343,8 +348,11 @@ async fn do_generate(
         Ok(tale) => tale,
         Err(e) => {
             error!("Structure generation failed: {}", e);
-            bot.send_message(chat_id, format!("Ошибка генерации структуры: {}", e))
-                .await?;
+            bot.send_message(
+                chat_id,
+                format!("Ошибка генерации структуры: {}", e),
+            )
+            .await?;
             return Ok(());
         }
     };
@@ -372,8 +380,11 @@ async fn do_generate(
         Ok(s) => s,
         Err(e) => {
             error!("LLM generation failed: {}", e);
-            bot.send_message(chat_id, format!("Ошибка генерации текста: {}", e))
-                .await?;
+            bot.send_message(
+                chat_id,
+                format!("Ошибка генерации текста: {}", e),
+            )
+            .await?;
             return Ok(());
         }
     };
@@ -409,8 +420,7 @@ async fn do_structure(
     let tale = match generate_tale_structure(moves, seed) {
         Ok(t) => t,
         Err(e) => {
-            bot.send_message(chat_id, format!("Ошибка: {}", e))
-                .await?;
+            bot.send_message(chat_id, format!("Ошибка: {}", e)).await?;
             return Ok(());
         }
     };

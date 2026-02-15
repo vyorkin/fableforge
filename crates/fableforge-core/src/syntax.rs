@@ -7,8 +7,10 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::function::NarrativeFunction;
-use crate::tale::{Move, Tale};
+use crate::{
+    function::NarrativeFunction,
+    tale::{Move, Tale},
+};
 
 /// Set of morphological syntax rules (правила морфологического синтаксиса).
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -37,49 +39,151 @@ impl Syntax {
 
         Self::from_rules(vec![
             // Order rules: preparatory section
-            Precedes { before: Absentation, after: Interdiction },
-            Precedes { before: Interdiction, after: Violation },
-            Precedes { before: Reconnaissance, after: Delivery },
-            Precedes { before: Trickery, after: Complicity },
+            Precedes {
+                before: Absentation,
+                after: Interdiction,
+            },
+            Precedes {
+                before: Interdiction,
+                after: Violation,
+            },
+            Precedes {
+                before: Reconnaissance,
+                after: Delivery,
+            },
+            Precedes {
+                before: Trickery,
+                after: Complicity,
+            },
             // Complication comes after preparation
-            Precedes { before: Complicity, after: Villainy },
-            Precedes { before: Complicity, after: Lack },
+            Precedes {
+                before: Complicity,
+                after: Villainy,
+            },
+            Precedes {
+                before: Complicity,
+                after: Lack,
+            },
             // Villainy/Lack triggers the quest
-            Precedes { before: Villainy, after: Mediation },
-            Precedes { before: Lack, after: Mediation },
-            Precedes { before: Mediation, after: Counteraction },
-            Precedes { before: Counteraction, after: Departure },
+            Precedes {
+                before: Villainy,
+                after: Mediation,
+            },
+            Precedes {
+                before: Lack,
+                after: Mediation,
+            },
+            Precedes {
+                before: Mediation,
+                after: Counteraction,
+            },
+            Precedes {
+                before: Counteraction,
+                after: Departure,
+            },
             // Donor sequence
-            Precedes { before: Departure, after: DonorTest },
-            Precedes { before: DonorTest, after: HeroReaction },
-            Precedes { before: HeroReaction, after: Acquisition },
+            Precedes {
+                before: Departure,
+                after: DonorTest,
+            },
+            Precedes {
+                before: DonorTest,
+                after: HeroReaction,
+            },
+            Precedes {
+                before: HeroReaction,
+                after: Acquisition,
+            },
             // Struggle sequence
-            Precedes { before: Acquisition, after: Guidance },
-            Precedes { before: Guidance, after: Struggle },
-            Precedes { before: Struggle, after: Victory },
-            Precedes { before: Victory, after: Liquidation },
+            Precedes {
+                before: Acquisition,
+                after: Guidance,
+            },
+            Precedes {
+                before: Guidance,
+                after: Struggle,
+            },
+            Precedes {
+                before: Struggle,
+                after: Victory,
+            },
+            Precedes {
+                before: Victory,
+                after: Liquidation,
+            },
             // Return
-            Precedes { before: Liquidation, after: Return },
-            Precedes { before: Return, after: Pursuit },
-            Precedes { before: Pursuit, after: Rescue },
+            Precedes {
+                before: Liquidation,
+                after: Return,
+            },
+            Precedes {
+                before: Return,
+                after: Pursuit,
+            },
+            Precedes {
+                before: Pursuit,
+                after: Rescue,
+            },
             // Recognition sequence
-            Precedes { before: UnrecognizedArrival, after: UnfoundedClaims },
-            Precedes { before: UnfoundedClaims, after: DifficultTask },
-            Precedes { before: DifficultTask, after: Solution },
+            Precedes {
+                before: UnrecognizedArrival,
+                after: UnfoundedClaims,
+            },
+            Precedes {
+                before: UnfoundedClaims,
+                after: DifficultTask,
+            },
+            Precedes {
+                before: DifficultTask,
+                after: Solution,
+            },
             // Resolution
-            Precedes { before: Solution, after: Recognition },
-            Precedes { before: Recognition, after: Exposure },
-            Precedes { before: Exposure, after: Transfiguration },
+            Precedes {
+                before: Solution,
+                after: Recognition,
+            },
+            Precedes {
+                before: Recognition,
+                after: Exposure,
+            },
+            Precedes {
+                before: Exposure,
+                after: Transfiguration,
+            },
             // Paired functions
-            Paired { first: Interdiction, second: Violation },
-            Paired { first: Reconnaissance, second: Delivery },
-            Paired { first: Trickery, second: Complicity },
-            Paired { first: DonorTest, second: HeroReaction },
-            Paired { first: Struggle, second: Victory },
-            Paired { first: DifficultTask, second: Solution },
-            Paired { first: Pursuit, second: Rescue },
+            Paired {
+                first: Interdiction,
+                second: Violation,
+            },
+            Paired {
+                first: Reconnaissance,
+                second: Delivery,
+            },
+            Paired {
+                first: Trickery,
+                second: Complicity,
+            },
+            Paired {
+                first: DonorTest,
+                second: HeroReaction,
+            },
+            Paired {
+                first: Struggle,
+                second: Victory,
+            },
+            Paired {
+                first: DifficultTask,
+                second: Solution,
+            },
+            Paired {
+                first: Pursuit,
+                second: Rescue,
+            },
             // Mutually exclusive
-            Excludes { a: Villainy, b: Lack },
+            Excludes {
+                a: Villainy,
+                b: Lack,
+            },
         ])
     }
 
@@ -95,7 +199,8 @@ impl Syntax {
         let mut errors = Vec::new();
         let mut warnings = Vec::new();
 
-        let functions: Vec<NarrativeFunction> = m.moments.iter().map(|m| m.function.function).collect();
+        let functions: Vec<NarrativeFunction> =
+            m.moments.iter().map(|m| m.function.function).collect();
 
         // Check each rule
         for rule in &self.rules {
@@ -104,8 +209,7 @@ impl Syntax {
                     if let (Some(pos_before), Some(pos_after)) = (
                         functions.iter().position(|f| f == before),
                         functions.iter().position(|f| f == after),
-                    )
-                        && pos_before > pos_after
+                    ) && pos_before > pos_after
                     {
                         errors.push(SyntaxError::OrderViolation {
                             before: *before,
@@ -126,7 +230,10 @@ impl Syntax {
                 }
                 Rule::Excludes { a, b } => {
                     if functions.contains(a) && functions.contains(b) {
-                        warnings.push(SyntaxWarning::MutualExclusion { a: *a, b: *b });
+                        warnings.push(SyntaxWarning::MutualExclusion {
+                            a: *a,
+                            b: *b,
+                        });
                     }
                 }
             }
@@ -177,11 +284,13 @@ impl Syntax {
         let valid = all_errors.is_empty();
 
         // Calculate overall absurdity
-        let all_functions: Vec<NarrativeFunction> = t
-            .all_moments()
-            .map(|m| m.function.function)
-            .collect();
-        let absurdity = calculate_absurdity(&all_functions, &all_errors, &all_warnings);
+        let all_functions: Vec<NarrativeFunction> =
+            t.all_moments().map(|m| m.function.function).collect();
+        let absurdity = calculate_absurdity(
+            &all_functions,
+            &all_errors,
+            &all_warnings,
+        );
 
         ValidationResult {
             valid,
@@ -202,11 +311,20 @@ impl Default for Syntax {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Rule {
     /// A must precede B (A должна быть до B).
-    Precedes { before: NarrativeFunction, after: NarrativeFunction },
+    Precedes {
+        before: NarrativeFunction,
+        after: NarrativeFunction,
+    },
     /// A and B are paired (парные функции).
-    Paired { first: NarrativeFunction, second: NarrativeFunction },
+    Paired {
+        first: NarrativeFunction,
+        second: NarrativeFunction,
+    },
     /// A excludes B in the same move (взаимоисключающие).
-    Excludes { a: NarrativeFunction, b: NarrativeFunction },
+    Excludes {
+        a: NarrativeFunction,
+        b: NarrativeFunction,
+    },
 }
 
 /// Result of validation (результат валидации).
@@ -227,7 +345,10 @@ pub struct ValidationResult {
 pub enum SyntaxError {
     /// Order violation.
     #[error("{before:?} must precede {after:?}")]
-    OrderViolation { before: NarrativeFunction, after: NarrativeFunction },
+    OrderViolation {
+        before: NarrativeFunction,
+        after: NarrativeFunction,
+    },
 }
 
 /// Syntax warning (предупреждение синтаксиса).
@@ -242,7 +363,10 @@ pub enum SyntaxWarning {
     },
     /// Mutually exclusive functions present.
     #[error("{a:?} and {b:?} are mutually exclusive")]
-    MutualExclusion { a: NarrativeFunction, b: NarrativeFunction },
+    MutualExclusion {
+        a: NarrativeFunction,
+        b: NarrativeFunction,
+    },
     /// Missing complication (A or a).
     #[error("missing complication (Villainy or Lack)")]
     MissingComplication,
@@ -284,7 +408,8 @@ fn calculate_absurdity(
     score.clamp(0.0, 1.0)
 }
 
-/// Score how well the functions follow canonical order (0.0 = chaos, 1.0 = perfect).
+/// Score how well the functions follow canonical order (0.0 = chaos, 1.0 =
+/// perfect).
 fn canonical_order_score(functions: &[NarrativeFunction]) -> f32 {
     if functions.len() <= 1 {
         return 1.0;
@@ -311,13 +436,14 @@ fn canonical_order_score(functions: &[NarrativeFunction]) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::function::NarrativeFunctionInstance;
-    use crate::tale::Moment;
+    use crate::{function::NarrativeFunctionInstance, tale::Moment};
 
     fn make_move(functions: &[NarrativeFunction]) -> Move {
         let mut m = Move::new();
         for f in functions {
-            m.moments.push(Moment::new(NarrativeFunctionInstance::new(*f)));
+            m.moments.push(Moment::new(
+                NarrativeFunctionInstance::new(*f),
+            ));
         }
         m
     }
@@ -340,7 +466,7 @@ mod tests {
     fn test_order_violation() {
         let syntax = Syntax::canonical();
         let m = make_move(&[
-            NarrativeFunction::Departure,  // Should come after Counteraction
+            NarrativeFunction::Departure, // Should come after Counteraction
             NarrativeFunction::Counteraction,
         ]);
 
@@ -353,11 +479,16 @@ mod tests {
         let syntax = Syntax::canonical();
         let m = make_move(&[
             NarrativeFunction::Villainy,
-            NarrativeFunction::Lack,  // Both Villainy and Lack
+            NarrativeFunction::Lack, // Both Villainy and Lack
         ]);
 
         let result = syntax.validate_move(&m);
-        assert!(result.warnings.iter().any(|w| matches!(w, SyntaxWarning::MutualExclusion { .. })));
+        assert!(
+            result
+                .warnings
+                .iter()
+                .any(|w| matches!(w, SyntaxWarning::MutualExclusion { .. }))
+        );
     }
 
     #[test]

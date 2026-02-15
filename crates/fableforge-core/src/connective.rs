@@ -51,7 +51,6 @@ impl Connective {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -65,7 +64,9 @@ mod tests {
 
         assert!(matches!(c1, Connective::Motivation(_)));
         assert!(matches!(c2, Connective::Temporal(_)));
-        assert!(matches!(c3, Connective::Transference(_)));
+        assert!(matches!(
+            c3,
+            Connective::Transference(_)
+        ));
     }
-
 }

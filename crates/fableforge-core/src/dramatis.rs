@@ -127,8 +127,12 @@ mod tests {
 
     #[test]
     fn test_persona_with_multiple_spheres() {
-        // A character can combine multiple spheres (e.g., hero who is also dispatcher)
-        let persona = Persona::new(1u32, vec![Sphere::Hero, Sphere::Dispatcher]);
+        // A character can combine multiple spheres (e.g., hero who is also
+        // dispatcher)
+        let persona = Persona::new(
+            1u32,
+            vec![Sphere::Hero, Sphere::Dispatcher],
+        );
         assert_eq!(persona.spheres.len(), 2);
         assert!(persona.spheres.contains(&Sphere::Hero));
         assert!(persona.spheres.contains(&Sphere::Dispatcher));
@@ -138,11 +142,23 @@ mod tests {
     fn test_attributes_flexibility() {
         let mut attrs: Attributes = HashMap::new();
         attrs.insert("name".to_string(), "Иван".to_string());
-        attrs.insert("epithet".to_string(), "дурак".to_string());
-        attrs.insert("appearance".to_string(), "молодой крестьянин".to_string());
+        attrs.insert(
+            "epithet".to_string(),
+            "дурак".to_string(),
+        );
+        attrs.insert(
+            "appearance".to_string(),
+            "молодой крестьянин".to_string(),
+        );
 
-        assert_eq!(attrs.get("name").map(String::as_str), Some("Иван"));
-        assert_eq!(attrs.get("epithet").map(String::as_str), Some("дурак"));
+        assert_eq!(
+            attrs.get("name").map(String::as_str),
+            Some("Иван")
+        );
+        assert_eq!(
+            attrs.get("epithet").map(String::as_str),
+            Some("дурак")
+        );
         assert_eq!(attrs.get("custom_field"), None);
     }
 }

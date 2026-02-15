@@ -9,15 +9,19 @@ use std::fmt::{self, Display, Formatter, Write as FmtWrite};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use winnow::ascii::multispace0;
-use winnow::combinator::{alt, delimited, opt, repeat};
-use winnow::prelude::*;
-use winnow::token::{any, one_of};
-use winnow::ModalResult;
+use winnow::{
+    ModalResult,
+    ascii::multispace0,
+    combinator::{alt, delimited, opt, repeat},
+    prelude::*,
+    token::{any, one_of},
+};
 
-use crate::dramatis::{Persona, Sphere};
-use crate::function::{NarrativeFunction, NarrativeFunctionInstance, Phase};
-use crate::tale::{Moment, Move, Tale};
+use crate::{
+    dramatis::{Persona, Sphere},
+    function::{NarrativeFunction, NarrativeFunctionInstance, Phase},
+    tale::{Moment, Move, Tale},
+};
 
 /// Tale formula in Propp's notation (формула сказки).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -88,9 +92,13 @@ impl Formula {
     }
 
     /// Add a function.
-    pub fn push_function(&mut self, function: impl Into<NarrativeFunctionInstance>) {
-        self.elements
-            .push(FormulaElement::Function(function.into()));
+    pub fn push_function(
+        &mut self,
+        function: impl Into<NarrativeFunctionInstance>,
+    ) {
+        self.elements.push(FormulaElement::Function(
+            function.into(),
+        ));
     }
 
     /// Add a move break.
@@ -114,21 +122,26 @@ impl Formula {
     /// Extend formula with moments from a move.
     pub fn extend_from_move(&mut self, m: &Move) {
         for moment in &m.moments {
-            self.elements
-                .push(FormulaElement::Function(moment.function.clone()));
+            self.elements.push(FormulaElement::Function(
+                moment.function.clone(),
+            ));
         }
         // Add embedded moves as bracketed elements
         for em in &m.embedded_moves {
             let mut inner = Vec::new();
             for moment in &em.moments {
-                inner.push(FormulaElement::Function(moment.function.clone()));
+                inner.push(FormulaElement::Function(
+                    moment.function.clone(),
+                ));
             }
             self.elements.push(FormulaElement::Embedded(inner));
         }
     }
 
     /// Get all functions in the formula (not including embedded).
-    pub fn functions(&self) -> impl Iterator<Item = &NarrativeFunctionInstance> {
+    pub fn functions(
+        &self,
+    ) -> impl Iterator<Item = &NarrativeFunctionInstance> {
         self.elements.iter().filter_map(|e| match e {
             FormulaElement::Function(f) => Some(f),
             FormulaElement::Optional(inner) => match inner.as_ref() {
@@ -146,9 +159,12 @@ impl Formula {
     /// `Triplication`, and infers personae from the functions present.
     #[must_use]
     pub fn to_tale(&self) -> Tale {
-        // Split elements into groups by MoveBreak, collecting embedded elements per group
-        let mut move_groups: Vec<Vec<NarrativeFunctionInstance>> = vec![Vec::new()];
-        let mut embedded_groups: Vec<Vec<Vec<NarrativeFunctionInstance>>> = vec![Vec::new()];
+        // Split elements into groups by MoveBreak, collecting embedded elements
+        // per group
+        let mut move_groups: Vec<Vec<NarrativeFunctionInstance>> =
+            vec![Vec::new()];
+        let mut embedded_groups: Vec<Vec<Vec<NarrativeFunctionInstance>>> =
+            vec![Vec::new()];
 
         for elem in &self.elements {
             match elem {
@@ -169,13 +185,16 @@ impl Formula {
                     // Skip triplication markers
                 }
                 FormulaElement::Embedded(elements) => {
-                    let funcs: Vec<NarrativeFunctionInstance> = elements.iter().filter_map(|e| {
-                        if let FormulaElement::Function(inst) = e {
-                            Some(inst.clone())
-                        } else {
-                            None
-                        }
-                    }).collect();
+                    let funcs: Vec<NarrativeFunctionInstance> = elements
+                        .iter()
+                        .filter_map(|e| {
+                            if let FormulaElement::Function(inst) = e {
+                                Some(inst.clone())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
                     embedded_groups.last_mut().unwrap().push(funcs);
                 }
             }
@@ -188,8 +207,14 @@ impl Formula {
                 keep_indices.push(i);
             }
         }
-        let move_groups: Vec<_> = keep_indices.iter().map(|&i| move_groups[i].clone()).collect();
-        let embedded_groups: Vec<_> = keep_indices.iter().map(|&i| embedded_groups[i].clone()).collect();
+        let move_groups: Vec<_> = keep_indices
+            .iter()
+            .map(|&i| move_groups[i].clone())
+            .collect();
+        let embedded_groups: Vec<_> = keep_indices
+            .iter()
+            .map(|&i| embedded_groups[i].clone())
+            .collect();
 
         // Collect all functions to infer personae
         let all_funcs: Vec<NarrativeFunction> = move_groups
@@ -245,8 +270,11 @@ impl Formula {
                     for inst in em_funcs {
                         let mut moment = Moment::new(inst.clone());
                         match inst.function.phase() {
-                            Phase::Donor | Phase::Struggle | Phase::Return
-                            | Phase::Recognition | Phase::Resolution => {
+                            Phase::Donor
+                            | Phase::Struggle
+                            | Phase::Return
+                            | Phase::Recognition
+                            | Phase::Resolution => {
                                 moment.agent = hero_id;
                             }
                             _ => {}
@@ -272,12 +300,18 @@ impl Formula {
         let mut next_id = 1u32;
 
         // Always add Hero
-        personae.push(Persona::new(next_id, vec![Sphere::Hero]));
+        personae.push(Persona::new(
+            next_id,
+            vec![Sphere::Hero],
+        ));
         next_id += 1;
 
         // Villainy present → add Villain
         if funcs.contains(&NarrativeFunction::Villainy) {
-            personae.push(Persona::new(next_id, vec![Sphere::Villain]));
+            personae.push(Persona::new(
+                next_id,
+                vec![Sphere::Villain],
+            ));
             next_id += 1;
         }
 
@@ -290,7 +324,10 @@ impl Formula {
                     | NarrativeFunction::Acquisition
             )
         }) {
-            personae.push(Persona::new(next_id, vec![Sphere::Donor]));
+            personae.push(Persona::new(
+                next_id,
+                vec![Sphere::Donor],
+            ));
             next_id += 1;
         }
 
@@ -301,19 +338,28 @@ impl Formula {
                 NarrativeFunction::Recognition | NarrativeFunction::Wedding
             )
         }) {
-            personae.push(Persona::new(next_id, vec![Sphere::Princess]));
+            personae.push(Persona::new(
+                next_id,
+                vec![Sphere::Princess],
+            ));
             next_id += 1;
         }
 
         // Mediation present → add Dispatcher
         if funcs.contains(&NarrativeFunction::Mediation) {
-            personae.push(Persona::new(next_id, vec![Sphere::Dispatcher]));
+            personae.push(Persona::new(
+                next_id,
+                vec![Sphere::Dispatcher],
+            ));
             next_id += 1;
         }
 
         // Guidance present → add Helper
         if funcs.contains(&NarrativeFunction::Guidance) {
-            personae.push(Persona::new(next_id, vec![Sphere::Helper]));
+            personae.push(Persona::new(
+                next_id,
+                vec![Sphere::Helper],
+            ));
             next_id += 1;
         }
 
@@ -321,10 +367,14 @@ impl Formula {
         if funcs.iter().any(|f| {
             matches!(
                 f,
-                NarrativeFunction::UnfoundedClaims | NarrativeFunction::Exposure
+                NarrativeFunction::UnfoundedClaims
+                    | NarrativeFunction::Exposure
             )
         }) {
-            personae.push(Persona::new(next_id, vec![Sphere::FalseHero]));
+            personae.push(Persona::new(
+                next_id,
+                vec![Sphere::FalseHero],
+            ));
             let _ = next_id;
         }
 
@@ -416,7 +466,8 @@ fn symbol_to_latex(s: &str) -> &str {
 }
 
 fn superscript_text(n: u8) -> String {
-    const SUPERSCRIPTS: [char; 10] = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
+    const SUPERSCRIPTS: [char; 10] =
+        ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
     if n < 10 {
         SUPERSCRIPTS[n as usize].to_string()
     } else {
@@ -462,7 +513,8 @@ pub enum ParseError {
 // ============================================================================
 
 fn parse_formula(input: &mut &str) -> ModalResult<Formula> {
-    let elements: Vec<FormulaElement> = repeat(0.., parse_element).parse_next(input)?;
+    let elements: Vec<FormulaElement> =
+        repeat(0.., parse_element).parse_next(input)?;
     Ok(Formula::from_elements(elements))
 }
 
@@ -497,13 +549,16 @@ fn parse_triplication(input: &mut &str) -> ModalResult<FormulaElement> {
 }
 
 fn parse_embedded(input: &mut &str) -> ModalResult<FormulaElement> {
-    let elements: Vec<FormulaElement> = delimited('[', repeat(0.., parse_element), ']').parse_next(input)?;
+    let elements: Vec<FormulaElement> =
+        delimited('[', repeat(0.., parse_element), ']').parse_next(input)?;
     Ok(FormulaElement::Embedded(elements))
 }
 
 fn parse_optional(input: &mut &str) -> ModalResult<FormulaElement> {
     let inner = delimited('(', parse_element, ')').parse_next(input)?;
-    Ok(FormulaElement::Optional(Box::new(inner)))
+    Ok(FormulaElement::Optional(Box::new(
+        inner,
+    )))
 }
 
 fn parse_function(input: &mut &str) -> ModalResult<FormulaElement> {
@@ -516,11 +571,13 @@ fn parse_function(input: &mut &str) -> ModalResult<FormulaElement> {
     // Parse optional superscript subtype
     let subtype = opt(parse_superscript).parse_next(input)?;
 
-    Ok(FormulaElement::Function(NarrativeFunctionInstance {
-        function: func,
-        subtype,
-        negated,
-    }))
+    Ok(FormulaElement::Function(
+        NarrativeFunctionInstance {
+            function: func,
+            subtype,
+            negated,
+        },
+    ))
 }
 
 fn parse_function_symbol(input: &mut &str) -> ModalResult<NarrativeFunction> {
@@ -532,12 +589,18 @@ fn parse_function_symbol(input: &mut &str) -> ModalResult<NarrativeFunction> {
     // Try single character/symbol
     let c = any.parse_next(input)?;
     let symbol = match c {
-        'α' | 'a' if input.starts_with(|c: char| !c.is_ascii_alphabetic()) || input.is_empty() => {
+        'α' | 'a'
+            if input.starts_with(|c: char| !c.is_ascii_alphabetic())
+                || input.is_empty() =>
+        {
             // Check if 'a' is Lack (lowercase a) vs part of "alpha"
             if c == 'a' {
                 // 'a' alone is Lack
-                return NarrativeFunction::from_symbol("a")
-                    .ok_or_else(|| winnow::error::ErrMode::Backtrack(winnow::error::ContextError::new()));
+                return NarrativeFunction::from_symbol("a").ok_or_else(|| {
+                    winnow::error::ErrMode::Backtrack(
+                        winnow::error::ContextError::new(),
+                    )
+                });
             }
             "α"
         }
@@ -549,7 +612,9 @@ fn parse_function_symbol(input: &mut &str) -> ModalResult<NarrativeFunction> {
         'η' => "η",
         'θ' => "θ",
         '↑' | '^' => "↑",
-        '↓' | 'v' if !input.starts_with(|c: char| c.is_ascii_alphabetic()) => "↓",
+        '↓' | 'v' if !input.starts_with(|c: char| c.is_ascii_alphabetic()) => {
+            "↓"
+        }
         'A' => "A",
         'B' => "B",
         'C' => "C",
@@ -572,16 +637,21 @@ fn parse_function_symbol(input: &mut &str) -> ModalResult<NarrativeFunction> {
         _ => {
             return Err(winnow::error::ErrMode::Backtrack(
                 winnow::error::ContextError::new(),
-            ))
+            ));
         }
     };
 
-    NarrativeFunction::from_symbol(symbol)
-        .ok_or_else(|| winnow::error::ErrMode::Backtrack(winnow::error::ContextError::new()))
+    NarrativeFunction::from_symbol(symbol).ok_or_else(|| {
+        winnow::error::ErrMode::Backtrack(winnow::error::ContextError::new())
+    })
 }
 
 fn try_parse_two_letter(input: &mut &str) -> Option<NarrativeFunction> {
-    let prefixes = [("Pr", NarrativeFunction::Pursuit), ("Rs", NarrativeFunction::Rescue), ("Ex", NarrativeFunction::Exposure)];
+    let prefixes = [
+        ("Pr", NarrativeFunction::Pursuit),
+        ("Rs", NarrativeFunction::Rescue),
+        ("Ex", NarrativeFunction::Exposure),
+    ];
 
     for (prefix, func) in prefixes {
         if input.starts_with(prefix) {
@@ -595,7 +665,10 @@ fn try_parse_two_letter(input: &mut &str) -> Option<NarrativeFunction> {
         ("alpha", NarrativeFunction::Absentation),
         ("beta", NarrativeFunction::Interdiction),
         ("gamma", NarrativeFunction::Violation),
-        ("delta", NarrativeFunction::Reconnaissance),
+        (
+            "delta",
+            NarrativeFunction::Reconnaissance,
+        ),
         ("epsilon", NarrativeFunction::Delivery),
         ("eta", NarrativeFunction::Trickery),
         ("theta", NarrativeFunction::Complicity),
@@ -612,7 +685,11 @@ fn try_parse_two_letter(input: &mut &str) -> Option<NarrativeFunction> {
 }
 
 fn parse_superscript(input: &mut &str) -> ModalResult<u8> {
-    alt((parse_unicode_superscript, parse_caret_number)).parse_next(input)
+    alt((
+        parse_unicode_superscript,
+        parse_caret_number,
+    ))
+    .parse_next(input)
 }
 
 fn superscript_char_to_digit(c: char) -> u8 {
@@ -632,11 +709,15 @@ fn superscript_char_to_digit(c: char) -> u8 {
 }
 
 fn parse_unicode_superscript(input: &mut &str) -> ModalResult<u8> {
-    let c = one_of(['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹']).parse_next(input)?;
+    let c = one_of(['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'])
+        .parse_next(input)?;
     let digit = superscript_char_to_digit(c);
 
     // Try to parse second digit for numbers >= 10
-    let second = opt(one_of(['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'])).parse_next(input)?;
+    let second = opt(one_of([
+        '⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹',
+    ]))
+    .parse_next(input)?;
 
     if let Some(c2) = second {
         Ok(digit * 10 + superscript_char_to_digit(c2))
@@ -648,9 +729,9 @@ fn parse_unicode_superscript(input: &mut &str) -> ModalResult<u8> {
 fn parse_caret_number(input: &mut &str) -> ModalResult<u8> {
     '^'.parse_next(input)?;
     let digits: String = repeat(1..=2, one_of('0'..='9')).parse_next(input)?;
-    digits
-        .parse()
-        .map_err(|_| winnow::error::ErrMode::Backtrack(winnow::error::ContextError::new()))
+    digits.parse().map_err(|_| {
+        winnow::error::ErrMode::Backtrack(winnow::error::ContextError::new())
+    })
 }
 
 #[cfg(test)]
@@ -668,7 +749,10 @@ mod tests {
 
         let funcs: Vec<_> = formula.functions().map(|f| f.function).collect();
         assert_eq!(funcs[0], NarrativeFunction::Absentation);
-        assert_eq!(funcs[1], NarrativeFunction::Interdiction);
+        assert_eq!(
+            funcs[1],
+            NarrativeFunction::Interdiction
+        );
         assert_eq!(funcs[2], NarrativeFunction::Violation);
         assert_eq!(funcs[3], NarrativeFunction::Villainy);
         assert_eq!(funcs[4], NarrativeFunction::Mediation);
@@ -685,7 +769,10 @@ mod tests {
 
         // β³ - interdiction with subtype 3
         if let FormulaElement::Function(f) = &elems[0] {
-            assert_eq!(f.function, NarrativeFunction::Interdiction);
+            assert_eq!(
+                f.function,
+                NarrativeFunction::Interdiction
+            );
             assert_eq!(f.subtype, Some(3));
         }
 
@@ -702,7 +789,10 @@ mod tests {
         let formula = Formula::parse("A B ↑ K ↓ || A B ↑ K ↓ W").unwrap();
 
         // Should have move break between two sequences
-        let has_break = formula.elements().iter().any(|e| matches!(e, FormulaElement::MoveBreak));
+        let has_break = formula
+            .elements()
+            .iter()
+            .any(|e| matches!(e, FormulaElement::MoveBreak));
         assert!(has_break);
     }
 
@@ -726,7 +816,10 @@ mod tests {
 
         // Parse the output again - should produce same structure
         let reparsed = Formula::parse(&output).unwrap();
-        assert_eq!(formula.functions().count(), reparsed.functions().count());
+        assert_eq!(
+            formula.functions().count(),
+            reparsed.functions().count()
+        );
     }
 
     /// Test LaTeX output
@@ -768,7 +861,10 @@ mod tests {
     fn test_optional_elements() {
         let formula = Formula::parse("A (B) ↑").unwrap();
 
-        let has_optional = formula.elements().iter().any(|e| matches!(e, FormulaElement::Optional(_)));
+        let has_optional = formula
+            .elements()
+            .iter()
+            .any(|e| matches!(e, FormulaElement::Optional(_)));
         assert!(has_optional);
     }
 
@@ -822,10 +918,8 @@ mod tests {
         let reconstructed = formula.to_tale();
 
         // Function sequence must match
-        let original_funcs: Vec<_> = tale
-            .all_moments()
-            .map(|m| m.function.function)
-            .collect();
+        let original_funcs: Vec<_> =
+            tale.all_moments().map(|m| m.function.function).collect();
         let reconstructed_funcs: Vec<_> = reconstructed
             .all_moments()
             .map(|m| m.function.function)
@@ -843,10 +937,8 @@ mod tests {
         assert_eq!(tale.moves.len(), 1);
 
         // Correct function sequence
-        let funcs: Vec<_> = tale
-            .all_moments()
-            .map(|m| m.function.function)
-            .collect();
+        let funcs: Vec<_> =
+            tale.all_moments().map(|m| m.function.function).collect();
         assert_eq!(
             funcs,
             vec![
@@ -860,9 +952,21 @@ mod tests {
         );
 
         // Personae inferred: Hero, Villain (Villainy), Princess (Wedding)
-        assert!(tale.personae.iter().any(|p| p.spheres.contains(&crate::dramatis::Sphere::Hero)));
-        assert!(tale.personae.iter().any(|p| p.spheres.contains(&crate::dramatis::Sphere::Villain)));
-        assert!(tale.personae.iter().any(|p| p.spheres.contains(&crate::dramatis::Sphere::Princess)));
+        assert!(
+            tale.personae
+                .iter()
+                .any(|p| p.spheres.contains(&crate::dramatis::Sphere::Hero))
+        );
+        assert!(
+            tale.personae
+                .iter()
+                .any(|p| p.spheres.contains(&crate::dramatis::Sphere::Villain))
+        );
+        assert!(
+            tale.personae.iter().any(|p| p
+                .spheres
+                .contains(&crate::dramatis::Sphere::Princess))
+        );
     }
 
     /// to_tale with multiple moves (MoveBreak)
@@ -882,10 +986,8 @@ mod tests {
         let formula = Formula::parse("A (B) ↑").unwrap();
         let tale = formula.to_tale();
 
-        let funcs: Vec<_> = tale
-            .all_moments()
-            .map(|m| m.function.function)
-            .collect();
+        let funcs: Vec<_> =
+            tale.all_moments().map(|m| m.function.function).collect();
         assert_eq!(
             funcs,
             vec![
@@ -902,8 +1004,14 @@ mod tests {
         let formula = Formula::parse("A¹ B⁴ ↑").unwrap();
         let tale = formula.to_tale();
 
-        assert_eq!(tale.moves[0].moments[0].function.subtype, Some(1));
-        assert_eq!(tale.moves[0].moments[1].function.subtype, Some(4));
+        assert_eq!(
+            tale.moves[0].moments[0].function.subtype,
+            Some(1)
+        );
+        assert_eq!(
+            tale.moves[0].moments[1].function.subtype,
+            Some(4)
+        );
     }
 
     /// to_tale infers Donor sphere when donor functions present
@@ -912,7 +1020,11 @@ mod tests {
         let formula = Formula::parse("A ↑ D E F K ↓").unwrap();
         let tale = formula.to_tale();
 
-        assert!(tale.personae.iter().any(|p| p.spheres.contains(&crate::dramatis::Sphere::Donor)));
+        assert!(
+            tale.personae
+                .iter()
+                .any(|p| p.spheres.contains(&crate::dramatis::Sphere::Donor))
+        );
     }
 
     // ========================================================================
@@ -924,7 +1036,10 @@ mod tests {
     fn test_parse_embedded() {
         let formula = Formula::parse("A ↑ [a C ↑ K ↓] K ↓ W").unwrap();
 
-        let has_embedded = formula.elements().iter().any(|e| matches!(e, FormulaElement::Embedded(_)));
+        let has_embedded = formula
+            .elements()
+            .iter()
+            .any(|e| matches!(e, FormulaElement::Embedded(_)));
         assert!(has_embedded);
     }
 
@@ -933,7 +1048,11 @@ mod tests {
     fn test_embedded_text_output() {
         let formula = Formula::parse("A ↑ [a C ↑ K ↓] K ↓ W").unwrap();
         let text = formula.to_text();
-        assert!(text.contains("[a C ↑ K ↓]"), "Expected embedded in text output, got: {}", text);
+        assert!(
+            text.contains("[a C ↑ K ↓]"),
+            "Expected embedded in text output, got: {}",
+            text
+        );
     }
 
     /// Test LaTeX output of embedded moves
@@ -941,8 +1060,16 @@ mod tests {
     fn test_embedded_latex_output() {
         let formula = Formula::parse("A ↑ [a C ↑ K ↓] K ↓ W").unwrap();
         let latex = formula.to_latex();
-        assert!(latex.contains("\\left["), "Expected \\left[ in LaTeX output, got: {}", latex);
-        assert!(latex.contains("\\right]"), "Expected \\right] in LaTeX output, got: {}", latex);
+        assert!(
+            latex.contains("\\left["),
+            "Expected \\left[ in LaTeX output, got: {}",
+            latex
+        );
+        assert!(
+            latex.contains("\\right]"),
+            "Expected \\right] in LaTeX output, got: {}",
+            latex
+        );
     }
 
     /// Test from_tale with embedded moves
@@ -963,7 +1090,11 @@ mod tests {
 
         let formula = Formula::from_tale(&tale);
         let text = formula.to_text();
-        assert!(text.contains("[a K ↓]"), "Expected embedded in formula text, got: {}", text);
+        assert!(
+            text.contains("[a K ↓]"),
+            "Expected embedded in formula text, got: {}",
+            text
+        );
     }
 
     /// Test to_tale with embedded moves
@@ -976,15 +1107,22 @@ mod tests {
         assert_eq!(tale.moves[0].embedded_moves.len(), 1);
 
         let em = &tale.moves[0].embedded_moves[0];
-        assert_eq!(em.relation, crate::tale::MoveRelation::Embedded);
-        let em_funcs: Vec<_> = em.moments.iter().map(|m| m.function.function).collect();
-        assert_eq!(em_funcs, vec![
-            NarrativeFunction::Lack,
-            NarrativeFunction::Counteraction,
-            NarrativeFunction::Departure,
-            NarrativeFunction::Liquidation,
-            NarrativeFunction::Return,
-        ]);
+        assert_eq!(
+            em.relation,
+            crate::tale::MoveRelation::Embedded
+        );
+        let em_funcs: Vec<_> =
+            em.moments.iter().map(|m| m.function.function).collect();
+        assert_eq!(
+            em_funcs,
+            vec![
+                NarrativeFunction::Lack,
+                NarrativeFunction::Counteraction,
+                NarrativeFunction::Departure,
+                NarrativeFunction::Liquidation,
+                NarrativeFunction::Return,
+            ]
+        );
     }
 
     /// Test infer_personae includes Dispatcher and Helper
@@ -993,9 +1131,17 @@ mod tests {
         let formula = Formula::parse("A B ↑ G H I K ↓ W").unwrap();
         let tale = formula.to_tale();
 
-        assert!(tale.personae.iter().any(|p| p.spheres.contains(&crate::dramatis::Sphere::Dispatcher)),
-            "Expected Dispatcher inferred from Mediation (B)");
-        assert!(tale.personae.iter().any(|p| p.spheres.contains(&crate::dramatis::Sphere::Helper)),
-            "Expected Helper inferred from Guidance (G)");
+        assert!(
+            tale.personae.iter().any(|p| p
+                .spheres
+                .contains(&crate::dramatis::Sphere::Dispatcher)),
+            "Expected Dispatcher inferred from Mediation (B)"
+        );
+        assert!(
+            tale.personae
+                .iter()
+                .any(|p| p.spheres.contains(&crate::dramatis::Sphere::Helper)),
+            "Expected Helper inferred from Guidance (G)"
+        );
     }
 }

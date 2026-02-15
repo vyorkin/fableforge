@@ -81,7 +81,8 @@ impl Episode {
 
         // 3. Group moments by phase for each move
         for mov in &tale.moves {
-            let mut phase_moments: BTreeMap<PhaseOrd, Vec<Moment>> = BTreeMap::new();
+            let mut phase_moments: BTreeMap<PhaseOrd, Vec<Moment>> =
+                BTreeMap::new();
 
             for moment in &mov.moments {
                 let phase = moment.function.function.phase();
@@ -105,7 +106,8 @@ impl Episode {
 
             // Process embedded moves
             for em in &mov.embedded_moves {
-                let mut em_phase_moments: BTreeMap<PhaseOrd, Vec<Moment>> = BTreeMap::new();
+                let mut em_phase_moments: BTreeMap<PhaseOrd, Vec<Moment>> =
+                    BTreeMap::new();
                 for moment in &em.moments {
                     let phase = moment.function.function.phase();
                     em_phase_moments
@@ -128,7 +130,10 @@ impl Episode {
 
     /// Check if this is the character generation episode.
     pub fn is_character_generation(&self) -> bool {
-        matches!(self.kind, EpisodeKind::CharacterGeneration)
+        matches!(
+            self.kind,
+            EpisodeKind::CharacterGeneration
+        )
     }
 
     /// Check if this is a narrative episode (initial situation or phase).
@@ -193,7 +198,10 @@ mod tests {
         let episodes = Episode::segment(&tale);
         assert_eq!(episodes.len(), 2);
         assert!(episodes[0].is_character_generation());
-        assert_eq!(episodes[1].kind, EpisodeKind::InitialSituation);
+        assert_eq!(
+            episodes[1].kind,
+            EpisodeKind::InitialSituation
+        );
     }
 
     #[test]

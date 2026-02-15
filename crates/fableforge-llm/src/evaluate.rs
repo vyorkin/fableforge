@@ -1,19 +1,20 @@
 //! Coherence evaluation (LLM-as-judge).
 //!
-//! After generating a story, sends the text + morphological structure back to the LLM
-//! for quality evaluation across four dimensions.
+//! After generating a story, sends the text + morphological structure back to
+//! the LLM for quality evaluation across four dimensions.
 
 use std::sync::Arc;
 
+use fableforge_core::{Lang, Tale};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument};
 
-use fableforge_core::{Lang, Tale};
-
-use crate::client::LlmClient;
-use crate::context::GeneratedStory;
-use crate::error::LlmError;
-use crate::prompt::{PromptBuilder, StyleConfig};
+use crate::{
+    client::LlmClient,
+    context::GeneratedStory,
+    error::LlmError,
+    prompt::{PromptBuilder, StyleConfig},
+};
 
 /// Coherence evaluation report.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -41,9 +42,11 @@ impl CoherenceReport {
 /// Four evaluation dimensions, each scored 0.0–1.0.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CoherenceDimensions {
-    /// Do characters behave consistently with their assigned spheres and personalities?
+    /// Do characters behave consistently with their assigned spheres and
+    /// personalities?
     pub character_consistency: f32,
-    /// Does the narrative actually follow the morphological structure (functions, phases)?
+    /// Does the narrative actually follow the morphological structure
+    /// (functions, phases)?
     pub structural_fidelity: f32,
     /// Do episodes flow logically from one to the next?
     pub episode_continuity: f32,
@@ -110,9 +113,13 @@ impl<C: LlmClient> CoherenceEvaluator<C> {
         info!("Evaluating story coherence...");
 
         let prompt = self.prompt_builder.evaluation_prompt(tale, story);
-        debug!("Evaluation prompt length: {} chars", prompt.len());
+        debug!(
+            "Evaluation prompt length: {} chars",
+            prompt.len()
+        );
 
-        let mut report: CoherenceReport = self.client.complete_json(&prompt).await?;
+        let mut report: CoherenceReport =
+            self.client.complete_json(&prompt).await?;
         report.recalculate();
 
         info!("Coherence score: {:.2}", report.score);
@@ -122,11 +129,16 @@ impl<C: LlmClient> CoherenceEvaluator<C> {
 
 #[cfg(test)]
 mod tests {
+    use fableforge_core::{
+        Move, NarrativeFunction, Persona, PersonaId, Sphere,
+    };
+
     use super::*;
-    use crate::client::MockClient;
-    use crate::context::{EpisodeResult, GeneratedCharacter};
-    use crate::episode::Episode;
-    use fableforge_core::{Move, NarrativeFunction, Persona, PersonaId, Sphere};
+    use crate::{
+        client::MockClient,
+        context::{EpisodeResult, GeneratedCharacter},
+        episode::Episode,
+    };
 
     fn sample_report_json() -> String {
         r#"{
@@ -255,7 +267,10 @@ mod tests {
 
         let expected = (0.8 + 0.7 + 0.9 + 0.6) / 4.0;
         assert!((report.score - expected).abs() < 1e-6);
-        assert_eq!(report.summary, "Хорошая история с небольшими недочётами.");
+        assert_eq!(
+            report.summary,
+            "Хорошая история с небольшими недочётами."
+        );
     }
 
     #[tokio::test]

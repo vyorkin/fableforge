@@ -2,9 +2,14 @@
 //!
 //! Constructs prompts for character generation and narrative episodes.
 
-use fableforge_core::{Connective, InitialSituation, Lang, Persona, Sphere, Tale};
+use fableforge_core::{
+    Connective, InitialSituation, Lang, Persona, Sphere, Tale,
+};
 
-use crate::{context::{GeneratedStory, TaleContext}, episode::Episode};
+use crate::{
+    context::{GeneratedStory, TaleContext},
+    episode::Episode,
+};
 
 /// Style configuration for story generation.
 #[derive(Debug, Clone, Default)]
@@ -125,7 +130,8 @@ impl PromptBuilder {
     pub fn character_prompt(&self, tale: &Tale) -> String {
         let style_section = self.style.format_style(self.lang);
 
-        let has_multi_sphere = tale.personae.iter().any(|p| p.spheres.len() > 1);
+        let has_multi_sphere =
+            tale.personae.iter().any(|p| p.spheres.len() > 1);
 
         let mut personae_section = String::new();
         for persona in &tale.personae {
@@ -148,8 +154,12 @@ impl PromptBuilder {
 
         let duality_instruction = if has_multi_sphere {
             match self.lang {
-                Lang::En => "\nSome characters combine multiple roles. This duality should be reflected in their personality, appearance, and name.\n",
-                Lang::Ru => "\nНекоторые персонажи совмещают несколько ролей. Это должно отражаться в их характере, внешности и имени — чтобы в них чувствовалась двойственность.\n",
+                Lang::En => {
+                    "\nSome characters combine multiple roles. This duality should be reflected in their personality, appearance, and name.\n"
+                }
+                Lang::Ru => {
+                    "\nНекоторые персонажи совмещают несколько ролей. Это должно отражаться в их характере, внешности и имени — чтобы в них чувствовалась двойственность.\n"
+                }
             }
         } else {
             ""
@@ -251,7 +261,8 @@ Introduce the characters, show their ordinary life before the events begin."#
                 prompt
             }
             Lang::Ru => {
-                let setting = ctx.setting.as_deref().unwrap_or("Неизвестное место");
+                let setting =
+                    ctx.setting.as_deref().unwrap_or("Неизвестное место");
 
                 let mut prompt = format!(
                     r#"Ты — писатель, создающий историю.
@@ -286,7 +297,12 @@ Introduce the characters, show their ordinary life before the events begin."#
     }
 
     /// Build prompt for a narrative phase episode.
-    pub fn phase_prompt(&self, episode: &Episode, ctx: &TaleContext, personae: &[Persona]) -> String {
+    pub fn phase_prompt(
+        &self,
+        episode: &Episode,
+        ctx: &TaleContext,
+        personae: &[Persona],
+    ) -> String {
         let style_section = self.style.format_style(self.lang);
         let characters_section = self.format_characters_short(ctx, personae);
         let summary = ctx.summary();
@@ -305,8 +321,12 @@ Introduce the characters, show their ordinary life before the events begin."#
         // Triplication instruction for donor phase
         if episode.triplication {
             let instruction = match self.lang {
-                Lang::Ru => "УТРОЕНИЕ: Этот эпизод содержит утроение — повторение действия три раза с нарастанием.\n",
-                Lang::En => "TRIPLICATION: This episode uses triplication — the action repeats three times with escalation.\n",
+                Lang::Ru => {
+                    "УТРОЕНИЕ: Этот эпизод содержит утроение — повторение действия три раза с нарастанием.\n"
+                }
+                Lang::En => {
+                    "TRIPLICATION: This episode uses triplication — the action repeats three times with escalation.\n"
+                }
             };
             moments_section.push_str(instruction);
         }
@@ -400,7 +420,11 @@ Length: 2-4 paragraphs."#
     }
 
     /// Build prompt for coherence evaluation (LLM-as-judge).
-    pub fn evaluation_prompt(&self, tale: &Tale, story: &GeneratedStory) -> String {
+    pub fn evaluation_prompt(
+        &self,
+        tale: &Tale,
+        story: &GeneratedStory,
+    ) -> String {
         let mut structure = String::new();
 
         // Personae with spheres
@@ -430,10 +454,11 @@ Length: 2-4 paragraphs."#
         }
 
         // Moves with functions
-        let (moves_header, move_label, agent_label, patient_label) = match self.lang {
-            Lang::En => ("\nMOVES:\n", "Move", "agent", "patient"),
-            Lang::Ru => ("\nХОДЫ:\n", "Ход", "агент", "объект"),
-        };
+        let (moves_header, move_label, agent_label, patient_label) =
+            match self.lang {
+                Lang::En => ("\nMOVES:\n", "Move", "agent", "patient"),
+                Lang::Ru => ("\nХОДЫ:\n", "Ход", "агент", "объект"),
+            };
         structure.push_str(moves_header);
         for (i, mov) in tale.moves.iter().enumerate() {
             structure.push_str(&format!("{} {}:\n", move_label, i + 1));
@@ -448,7 +473,10 @@ Length: 2-4 paragraphs."#
                         .find(|c| c.id == agent_id)
                         .map(|c| c.name.as_str())
                         .unwrap_or("?");
-                    structure.push_str(&format!(" [{}: {}]", agent_label, agent_name));
+                    structure.push_str(&format!(
+                        " [{}: {}]",
+                        agent_label, agent_name
+                    ));
                 }
                 if let Some(patient_id) = moment.patient {
                     let patient_name = story
@@ -457,7 +485,10 @@ Length: 2-4 paragraphs."#
                         .find(|c| c.id == patient_id)
                         .map(|c| c.name.as_str())
                         .unwrap_or("?");
-                    structure.push_str(&format!(" [{}: {}]", patient_label, patient_name));
+                    structure.push_str(&format!(
+                        " [{}: {}]",
+                        patient_label, patient_name
+                    ));
                 }
                 structure.push('\n');
             }
@@ -470,7 +501,12 @@ Length: 2-4 paragraphs."#
         };
         let mut episodes_text = String::new();
         for (i, ep) in story.episodes.iter().enumerate() {
-            episodes_text.push_str(&format!("--- {} {} ---\n{}\n\n", episode_label, i + 1, ep.text));
+            episodes_text.push_str(&format!(
+                "--- {} {} ---\n{}\n\n",
+                episode_label,
+                i + 1,
+                ep.text
+            ));
         }
 
         match self.lang {
@@ -546,7 +582,11 @@ Reply strictly in JSON format:
     }
 
     /// Format full character list for prompts, including sphere roles.
-    fn format_characters(&self, ctx: &TaleContext, personae: &[Persona]) -> String {
+    fn format_characters(
+        &self,
+        ctx: &TaleContext,
+        personae: &[Persona],
+    ) -> String {
         ctx.characters
             .values()
             .map(|c| {
@@ -554,9 +594,15 @@ Reply strictly in JSON format:
                 let appearance = c.appearance.as_deref().unwrap_or("");
                 let roles = self.format_roles(c.id, personae);
                 if roles.is_empty() {
-                    format!("- {} ({}): {}", c.name, epithet, appearance)
+                    format!(
+                        "- {} ({}): {}",
+                        c.name, epithet, appearance
+                    )
                 } else {
-                    format!("- {} ({}): {} — {}", c.name, epithet, appearance, roles)
+                    format!(
+                        "- {} ({}): {} — {}",
+                        c.name, epithet, appearance, roles
+                    )
                 }
             })
             .collect::<Vec<_>>()
@@ -564,7 +610,11 @@ Reply strictly in JSON format:
     }
 
     /// Format short character list (name + epithet + roles).
-    fn format_characters_short(&self, ctx: &TaleContext, personae: &[Persona]) -> String {
+    fn format_characters_short(
+        &self,
+        ctx: &TaleContext,
+        personae: &[Persona],
+    ) -> String {
         ctx.characters
             .values()
             .map(|c| {
@@ -581,7 +631,11 @@ Reply strictly in JSON format:
     }
 
     /// Format sphere roles for a character.
-    fn format_roles(&self, id: fableforge_core::PersonaId, personae: &[Persona]) -> String {
+    fn format_roles(
+        &self,
+        id: fableforge_core::PersonaId,
+        personae: &[Persona],
+    ) -> String {
         personae
             .iter()
             .find(|p| p.id == id)
@@ -597,7 +651,10 @@ Reply strictly in JSON format:
 }
 
 /// Format a connective for prompt rendering.
-fn format_connective(connective: &Connective, lang: Lang) -> (&'static str, &str) {
+fn format_connective(
+    connective: &Connective,
+    lang: Lang,
+) -> (&'static str, &str) {
     match connective {
         Connective::Motivation(text) => {
             let label = match lang {
@@ -734,13 +791,16 @@ mod tests {
 
     #[test]
     fn test_phase_prompt_with_connective() {
-        use crate::context::TaleContext;
-        use crate::episode::Episode;
         use fableforge_core::{
-            Connective, Moment, NarrativeFunctionInstance, NarrativeFunction, Phase,
+            Connective, Moment, NarrativeFunction, NarrativeFunctionInstance,
+            Phase,
         };
 
-        let mut moment = Moment::new(NarrativeFunctionInstance::new(NarrativeFunction::Counteraction));
+        use crate::{context::TaleContext, episode::Episode};
+
+        let mut moment = Moment::new(NarrativeFunctionInstance::new(
+            NarrativeFunction::Counteraction,
+        ));
         moment.connective = Some(Connective::motivation("из мести"));
 
         let episode = Episode::phase(Phase::Complication, vec![moment]);
@@ -749,34 +809,51 @@ mod tests {
         let builder = PromptBuilder::new(StyleConfig::new());
         let prompt = builder.phase_prompt(&episode, &ctx, &[]);
 
-        assert!(prompt.contains("Мотивация: из мести"), "Expected motivation connective in prompt");
+        assert!(
+            prompt.contains("Мотивация: из мести"),
+            "Expected motivation connective in prompt"
+        );
     }
 
     #[test]
     fn test_phase_prompt_with_connective_en() {
-        use crate::context::TaleContext;
-        use crate::episode::Episode;
         use fableforge_core::{
-            Connective, Moment, NarrativeFunctionInstance, NarrativeFunction, Phase,
+            Connective, Moment, NarrativeFunction, NarrativeFunctionInstance,
+            Phase,
         };
 
-        let mut moment = Moment::new(NarrativeFunctionInstance::new(NarrativeFunction::Departure));
-        moment.connective = Some(Connective::transference("верхом на коне"));
+        use crate::{context::TaleContext, episode::Episode};
+
+        let mut moment = Moment::new(NarrativeFunctionInstance::new(
+            NarrativeFunction::Departure,
+        ));
+        moment.connective = Some(Connective::transference(
+            "верхом на коне",
+        ));
 
         let episode = Episode::phase(Phase::Complication, vec![moment]);
         let ctx = TaleContext::new();
 
-        let builder = PromptBuilder::new(StyleConfig::new()).with_lang(Lang::En);
+        let builder =
+            PromptBuilder::new(StyleConfig::new()).with_lang(Lang::En);
         let prompt = builder.phase_prompt(&episode, &ctx, &[]);
 
-        assert!(prompt.contains("Transfer: верхом на коне"), "Expected transfer connective in English prompt");
+        assert!(
+            prompt.contains("Transfer: верхом на коне"),
+            "Expected transfer connective in English prompt"
+        );
     }
 
     #[test]
     fn test_evaluation_prompt_structure_ru() {
-        use crate::context::{EpisodeResult, GeneratedCharacter, GeneratedStory};
-        use crate::episode::Episode;
-        use fableforge_core::{Move, NarrativeFunction, Persona, PersonaId, Phase};
+        use fableforge_core::{
+            Move, NarrativeFunction, Persona, PersonaId, Phase,
+        };
+
+        use crate::{
+            context::{EpisodeResult, GeneratedCharacter, GeneratedStory},
+            episode::Episode,
+        };
 
         let mut mov = Move::new();
         mov.add_function(NarrativeFunction::Villainy);
@@ -830,9 +907,14 @@ mod tests {
 
     #[test]
     fn test_evaluation_prompt_structure_en() {
-        use crate::context::{EpisodeResult, GeneratedCharacter, GeneratedStory};
-        use crate::episode::Episode;
-        use fableforge_core::{Move, NarrativeFunction, Persona, PersonaId, Phase};
+        use fableforge_core::{
+            Move, NarrativeFunction, Persona, PersonaId, Phase,
+        };
+
+        use crate::{
+            context::{EpisodeResult, GeneratedCharacter, GeneratedStory},
+            episode::Episode,
+        };
 
         let mut mov = Move::new();
         mov.add_function(NarrativeFunction::Villainy);
@@ -869,7 +951,8 @@ mod tests {
             }],
         };
 
-        let builder = PromptBuilder::new(StyleConfig::new()).with_lang(Lang::En);
+        let builder =
+            PromptBuilder::new(StyleConfig::new()).with_lang(Lang::En);
         let prompt = builder.evaluation_prompt(&tale, &story);
 
         assert!(prompt.contains("literary critic"));
@@ -883,13 +966,15 @@ mod tests {
 
     #[test]
     fn test_phase_prompt_with_triplication() {
-        use crate::context::TaleContext;
-        use crate::episode::Episode;
         use fableforge_core::{
-            Moment, NarrativeFunctionInstance, NarrativeFunction, Phase,
+            Moment, NarrativeFunction, NarrativeFunctionInstance, Phase,
         };
 
-        let moment = Moment::new(NarrativeFunctionInstance::new(NarrativeFunction::DonorTest));
+        use crate::{context::TaleContext, episode::Episode};
+
+        let moment = Moment::new(NarrativeFunctionInstance::new(
+            NarrativeFunction::DonorTest,
+        ));
         let mut episode = Episode::phase(Phase::Donor, vec![moment]);
         episode.triplication = true;
 
@@ -897,11 +982,18 @@ mod tests {
         let builder = PromptBuilder::new(StyleConfig::new());
         let prompt = builder.phase_prompt(&episode, &ctx, &[]);
 
-        assert!(prompt.contains("УТРОЕНИЕ: Этот эпизод содержит утроение"), "Expected triplication in Ru prompt");
+        assert!(
+            prompt.contains("УТРОЕНИЕ: Этот эпизод содержит утроение"),
+            "Expected triplication in Ru prompt"
+        );
 
-        let builder_en = PromptBuilder::new(StyleConfig::new()).with_lang(Lang::En);
+        let builder_en =
+            PromptBuilder::new(StyleConfig::new()).with_lang(Lang::En);
         let prompt_en = builder_en.phase_prompt(&episode, &ctx, &[]);
-        assert!(prompt_en.contains("TRIPLICATION: This episode uses triplication"), "Expected triplication in En prompt");
+        assert!(
+            prompt_en.contains("TRIPLICATION: This episode uses triplication"),
+            "Expected triplication in En prompt"
+        );
     }
 
     #[test]
@@ -927,7 +1019,8 @@ mod tests {
         );
 
         // English version
-        let builder_en = PromptBuilder::new(StyleConfig::new()).with_lang(Lang::En);
+        let builder_en =
+            PromptBuilder::new(StyleConfig::new()).with_lang(Lang::En);
         let prompt_en = builder_en.character_prompt(&tale);
         assert!(
             prompt_en.contains("combine multiple roles"),
@@ -941,8 +1034,14 @@ mod tests {
 
         // Tale with only single-sphere personae
         let mut tale = Tale::default();
-        tale.personae.push(fableforge_core::Persona::new(1u32, vec![Sphere::Hero]));
-        tale.personae.push(fableforge_core::Persona::new(2u32, vec![Sphere::Villain]));
+        tale.personae.push(fableforge_core::Persona::new(
+            1u32,
+            vec![Sphere::Hero],
+        ));
+        tale.personae.push(fableforge_core::Persona::new(
+            2u32,
+            vec![Sphere::Villain],
+        ));
 
         let prompt = builder.character_prompt(&tale);
         assert!(
@@ -953,9 +1052,9 @@ mod tests {
 
     #[test]
     fn test_format_characters_includes_roles() {
-        use crate::context::TaleContext;
         use fableforge_core::{Persona, PersonaId};
-        use crate::context::GeneratedCharacter;
+
+        use crate::context::{GeneratedCharacter, TaleContext};
 
         let mut ctx = TaleContext::new();
         ctx.characters.insert(
@@ -968,9 +1067,10 @@ mod tests {
             },
         );
 
-        let personae = vec![
-            Persona::new(1u32, vec![Sphere::Villain, Sphere::Donor]),
-        ];
+        let personae = vec![Persona::new(
+            1u32,
+            vec![Sphere::Villain, Sphere::Donor],
+        )];
 
         let builder = PromptBuilder::new(StyleConfig::new());
         let formatted = builder.format_characters(&ctx, &personae);

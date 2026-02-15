@@ -3,16 +3,16 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use tracing::{debug, instrument, warn};
 
 use crate::error::LlmError;
 
 /// Trait for LLM clients.
 ///
-/// This trait abstracts over different LLM providers (Claude, OpenAI, Ollama, etc.)
-/// and allows for easy mocking in tests.
+/// This trait abstracts over different LLM providers (Claude, OpenAI, Ollama,
+/// etc.) and allows for easy mocking in tests.
 #[async_trait]
 pub trait LlmClient: Send + Sync {
     /// Send a prompt and get a text response.
@@ -91,7 +91,8 @@ impl RetryConfig {
 
     /// Calculate delay for a given attempt (0-indexed).
     fn delay_for_attempt(&self, attempt: u32) -> Duration {
-        let delay_secs = self.initial_delay.as_secs_f64() * self.backoff_factor.powi(attempt as i32);
+        let delay_secs = self.initial_delay.as_secs_f64()
+            * self.backoff_factor.powi(attempt as i32);
         let delay = Duration::from_secs_f64(delay_secs);
         delay.min(self.max_delay)
     }
@@ -154,22 +155,29 @@ impl ClaudeClient {
 
     /// Send a prompt and parse response as JSON.
     #[instrument(skip(self, prompt), fields(model = %self.model))]
-    pub async fn complete_json<T: DeserializeOwned>(&self, prompt: &str) -> Result<T, LlmError> {
+    pub async fn complete_json<T: DeserializeOwned>(
+        &self,
+        prompt: &str,
+    ) -> Result<T, LlmError> {
         let text = self.complete(prompt).await?;
 
         // Try to extract JSON from the response
         let json_text = extract_json(&text).unwrap_or(&text);
 
         serde_json::from_str(json_text).map_err(|e| {
-            debug!("Failed to parse JSON: {}, text: {}", e, json_text);
-            LlmError::InvalidJsonResponse {
-                text: text.clone(),
-            }
+            debug!(
+                "Failed to parse JSON: {}, text: {}",
+                e, json_text
+            );
+            LlmError::InvalidJsonResponse { text: text.clone() }
         })
     }
 
     /// Send request to Claude API with retry logic.
-    async fn send_request(&self, request: &MessagesRequest<'_>) -> Result<MessagesResponse, LlmError> {
+    async fn send_request(
+        &self,
+        request: &MessagesRequest<'_>,
+    ) -> Result<MessagesResponse, LlmError> {
         let mut last_error: Option<LlmError> = None;
 
         for attempt in 0..=self.retry.max_retries {
@@ -177,13 +185,18 @@ impl ClaudeClient {
                 let delay = last_error
                     .as_ref()
                     .and_then(|e| {
-                        if let LlmError::RateLimit { retry_after: Some(secs) } = e {
+                        if let LlmError::RateLimit {
+                            retry_after: Some(secs),
+                        } = e
+                        {
                             Some(Duration::from_secs(*secs))
                         } else {
                             None
                         }
                     })
-                    .unwrap_or_else(|| self.retry.delay_for_attempt(attempt - 1));
+                    .unwrap_or_else(|| {
+                        self.retry.delay_for_attempt(attempt - 1)
+                    });
 
                 warn!(
                     attempt = attempt,
@@ -195,7 +208,9 @@ impl ClaudeClient {
 
             match self.send_request_once(request).await {
                 Ok(response) => return Ok(response),
-                Err(e) if e.is_retryable() && attempt < self.retry.max_retries => {
+                Err(e)
+                    if e.is_retryable() && attempt < self.retry.max_retries =>
+                {
                     debug!(attempt = attempt, error = %e, "Request failed, will retry");
                     last_error = Some(e);
                 }
@@ -203,19 +218,28 @@ impl ClaudeClient {
             }
         }
 
-        Err(last_error.unwrap_or_else(|| LlmError::Api {
-            message: "Unknown error after retries".to_string(),
-            status: None,
-        }))
+        Err(
+            last_error.unwrap_or_else(|| LlmError::Api {
+                message: "Unknown error after retries".to_string(),
+                status: None,
+            }),
+        )
     }
 
     /// Send a single request without retry.
-    async fn send_request_once(&self, request: &MessagesRequest<'_>) -> Result<MessagesResponse, LlmError> {
+    async fn send_request_once(
+        &self,
+        request: &MessagesRequest<'_>,
+    ) -> Result<MessagesResponse, LlmError> {
         let mut headers = HeaderMap::new();
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        headers.insert(
+            CONTENT_TYPE,
+            HeaderValue::from_static("application/json"),
+        );
         headers.insert(
             "x-api-key",
-            HeaderValue::from_str(&self.api_key).map_err(|_| LlmError::InvalidApiKey)?,
+            HeaderValue::from_str(&self.api_key)
+                .map_err(|_| LlmError::InvalidApiKey)?,
         );
         headers.insert(
             "anthropic-version",
@@ -251,7 +275,9 @@ impl ClaudeClient {
             let mut error = self.parse_error(status.as_u16(), &error_body);
 
             // Inject retry-after if we got it from header
-            if let LlmError::RateLimit { retry_after: ref mut ra } = error
+            if let LlmError::RateLimit {
+                retry_after: ref mut ra,
+            } = error
                 && ra.is_none()
             {
                 *ra = retry_after;
@@ -262,7 +288,10 @@ impl ClaudeClient {
     }
 
     /// Extract text content from response.
-    fn extract_text(&self, response: &MessagesResponse) -> Result<String, LlmError> {
+    fn extract_text(
+        &self,
+        response: &MessagesResponse,
+    ) -> Result<String, LlmError> {
         let text = response
             .content
             .iter()
@@ -295,7 +324,9 @@ impl ClaudeClient {
                 "rate_limit_error" => {
                     return LlmError::RateLimit { retry_after: None };
                 }
-                "invalid_request_error" if error.error.message.contains("model") => {
+                "invalid_request_error"
+                    if error.error.message.contains("model") =>
+                {
                     return LlmError::ModelNotAvailable {
                         model: self.model.clone(),
                     };
@@ -511,7 +542,9 @@ impl OpenRouterClient {
                             None
                         }
                     })
-                    .unwrap_or_else(|| self.retry.delay_for_attempt(attempt - 1));
+                    .unwrap_or_else(|| {
+                        self.retry.delay_for_attempt(attempt - 1)
+                    });
 
                 warn!(
                     attempt = attempt,
@@ -523,7 +556,9 @@ impl OpenRouterClient {
 
             match self.send_request_once(request).await {
                 Ok(response) => return Ok(response),
-                Err(e) if e.is_retryable() && attempt < self.retry.max_retries => {
+                Err(e)
+                    if e.is_retryable() && attempt < self.retry.max_retries =>
+                {
                     debug!(attempt = attempt, error = %e, "Request failed, will retry");
                     last_error = Some(e);
                 }
@@ -531,10 +566,12 @@ impl OpenRouterClient {
             }
         }
 
-        Err(last_error.unwrap_or_else(|| LlmError::Api {
-            message: "Unknown error after retries".to_string(),
-            status: None,
-        }))
+        Err(
+            last_error.unwrap_or_else(|| LlmError::Api {
+                message: "Unknown error after retries".to_string(),
+                status: None,
+            }),
+        )
     }
 
     /// Send a single request without retry.
@@ -543,7 +580,10 @@ impl OpenRouterClient {
         request: &ChatCompletionRequest<'_>,
     ) -> Result<ChatCompletionResponse, LlmError> {
         let mut headers = HeaderMap::new();
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        headers.insert(
+            CONTENT_TYPE,
+            HeaderValue::from_static("application/json"),
+        );
         headers.insert(
             reqwest::header::AUTHORIZATION,
             HeaderValue::from_str(&format!("Bearer {}", self.api_key))
@@ -555,7 +595,10 @@ impl OpenRouterClient {
             headers.insert("X-Title", val);
         }
 
-        let url = format!("{}/chat/completions", OPENROUTER_API_BASE_URL);
+        let url = format!(
+            "{}/chat/completions",
+            OPENROUTER_API_BASE_URL
+        );
 
         debug!("Sending request to OpenRouter API");
 
@@ -596,14 +639,17 @@ impl OpenRouterClient {
 
     /// Parse error response from API (OpenAI-compatible format).
     fn parse_error(&self, status: u16, body: &str) -> LlmError {
-        // OpenRouter/OpenAI error format: {"error": {"message": "...", "type": "..."}}
+        // OpenRouter/OpenAI error format: {"error": {"message": "...", "type":
+        // "..."}}
         if let Ok(error) = serde_json::from_str::<ApiError>(body) {
             match error.error.error_type.as_str() {
                 "authentication_error" => return LlmError::InvalidApiKey,
                 "rate_limit_error" => {
                     return LlmError::RateLimit { retry_after: None };
                 }
-                "invalid_request_error" if error.error.message.contains("model") => {
+                "invalid_request_error"
+                    if error.error.message.contains("model") =>
+                {
                     return LlmError::ModelNotAvailable {
                         model: self.model.clone(),
                     };
@@ -640,17 +686,19 @@ impl LlmClient for OpenRouterClient {
         let json_text = extract_json(&text).unwrap_or(&text);
 
         serde_json::from_str(json_text).map_err(|e| {
-            debug!("Failed to parse JSON: {}, text: {}", e, json_text);
-            LlmError::InvalidJsonResponse {
-                text: text.clone(),
-            }
+            debug!(
+                "Failed to parse JSON: {}, text: {}",
+                e, json_text
+            );
+            LlmError::InvalidJsonResponse { text: text.clone() }
         })
     }
 }
 
 // ── AnyClient enum dispatch ─────────────────────────────────
 
-/// A provider-agnostic LLM client that dispatches to the concrete implementation.
+/// A provider-agnostic LLM client that dispatches to the concrete
+/// implementation.
 pub enum AnyClient {
     /// Claude API client.
     Claude(ClaudeClient),
@@ -755,12 +803,10 @@ impl LlmClient for MockClient {
                 status: None,
             });
         }
-        self.text_response
-            .clone()
-            .ok_or_else(|| LlmError::Api {
-                message: "MockClient: no text response configured".to_string(),
-                status: None,
-            })
+        self.text_response.clone().ok_or_else(|| LlmError::Api {
+            message: "MockClient: no text response configured".to_string(),
+            status: None,
+        })
     }
 
     async fn complete_json<T>(&self, _prompt: &str) -> Result<T, LlmError>
@@ -773,13 +819,13 @@ impl LlmClient for MockClient {
                 status: None,
             });
         }
-        let json = self.json_response.as_ref().ok_or_else(|| LlmError::Api {
-            message: "MockClient: no JSON response configured".to_string(),
-            status: None,
-        })?;
-        serde_json::from_str(json).map_err(|_| LlmError::InvalidJsonResponse {
-            text: json.clone(),
-        })
+        let json =
+            self.json_response.as_ref().ok_or_else(|| LlmError::Api {
+                message: "MockClient: no JSON response configured".to_string(),
+                status: None,
+            })?;
+        serde_json::from_str(json)
+            .map_err(|_| LlmError::InvalidJsonResponse { text: json.clone() })
     }
 }
 
@@ -793,13 +839,19 @@ mod tests {
 ```json
 {"name": "test"}
 ```"#;
-        assert_eq!(extract_json(text), Some(r#"{"name": "test"}"#));
+        assert_eq!(
+            extract_json(text),
+            Some(r#"{"name": "test"}"#)
+        );
     }
 
     #[test]
     fn test_extract_json_plain() {
         let text = r#"{"name": "test"}"#;
-        assert_eq!(extract_json(text), Some(r#"{"name": "test"}"#));
+        assert_eq!(
+            extract_json(text),
+            Some(r#"{"name": "test"}"#)
+        );
     }
 
     #[test]
@@ -813,14 +865,20 @@ mod tests {
         let text = r#"
         {"name": "test"}
         "#;
-        assert_eq!(extract_json(text), Some(r#"{"name": "test"}"#));
+        assert_eq!(
+            extract_json(text),
+            Some(r#"{"name": "test"}"#)
+        );
     }
 
     #[test]
     fn test_retry_config_defaults() {
         let config = RetryConfig::default();
         assert_eq!(config.max_retries, 3);
-        assert_eq!(config.initial_delay, Duration::from_secs(1));
+        assert_eq!(
+            config.initial_delay,
+            Duration::from_secs(1)
+        );
         assert_eq!(config.backoff_factor, 2.0);
     }
 
@@ -837,13 +895,25 @@ mod tests {
             .max_delay(Duration::from_secs(60));
 
         // attempt 0: 1s * 2^0 = 1s
-        assert_eq!(config.delay_for_attempt(0), Duration::from_secs(1));
+        assert_eq!(
+            config.delay_for_attempt(0),
+            Duration::from_secs(1)
+        );
         // attempt 1: 1s * 2^1 = 2s
-        assert_eq!(config.delay_for_attempt(1), Duration::from_secs(2));
+        assert_eq!(
+            config.delay_for_attempt(1),
+            Duration::from_secs(2)
+        );
         // attempt 2: 1s * 2^2 = 4s
-        assert_eq!(config.delay_for_attempt(2), Duration::from_secs(4));
+        assert_eq!(
+            config.delay_for_attempt(2),
+            Duration::from_secs(4)
+        );
         // attempt 3: 1s * 2^3 = 8s
-        assert_eq!(config.delay_for_attempt(3), Duration::from_secs(8));
+        assert_eq!(
+            config.delay_for_attempt(3),
+            Duration::from_secs(8)
+        );
     }
 
     #[test]
@@ -853,7 +923,10 @@ mod tests {
             .max_delay(Duration::from_secs(30));
 
         // attempt 2: 10s * 2^2 = 40s, but capped at 30s
-        assert_eq!(config.delay_for_attempt(2), Duration::from_secs(30));
+        assert_eq!(
+            config.delay_for_attempt(2),
+            Duration::from_secs(30)
+        );
     }
 
     #[tokio::test]
@@ -872,7 +945,8 @@ mod tests {
             name: String,
         }
 
-        let response: Response = client.complete_json("test prompt").await.unwrap();
+        let response: Response =
+            client.complete_json("test prompt").await.unwrap();
         assert_eq!(response.name, "test");
     }
 
@@ -895,7 +969,10 @@ mod tests {
         };
 
         let json = serde_json::to_value(&request).unwrap();
-        assert_eq!(json["model"], "anthropic/claude-sonnet-4");
+        assert_eq!(
+            json["model"],
+            "anthropic/claude-sonnet-4"
+        );
         assert_eq!(json["max_tokens"], 4096);
         assert_eq!(json["messages"][0]["role"], "user");
         assert_eq!(json["messages"][0]["content"], "Hello");
@@ -911,9 +988,13 @@ mod tests {
             }]
         }"#;
 
-        let response: ChatCompletionResponse = serde_json::from_str(json).unwrap();
+        let response: ChatCompletionResponse =
+            serde_json::from_str(json).unwrap();
         assert_eq!(response.choices.len(), 1);
-        assert_eq!(response.choices[0].message.content, "Hello, world!");
+        assert_eq!(
+            response.choices[0].message.content,
+            "Hello, world!"
+        );
     }
 
     #[test]
@@ -923,7 +1004,8 @@ mod tests {
 {"characters": [{"name": "Ivan"}]}
 ```"#;
         let extracted = extract_json(text).unwrap();
-        let parsed: serde_json::Value = serde_json::from_str(extracted).unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(extracted).unwrap();
         assert_eq!(parsed["characters"][0]["name"], "Ivan");
     }
 }

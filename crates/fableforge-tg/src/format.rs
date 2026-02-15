@@ -18,7 +18,10 @@ pub fn format_story(story: &GeneratedStory) -> Vec<String> {
             escape_html(epithet)
         ));
         if let Some(ref appearance) = ch.appearance {
-            header.push_str(&format!("    {}\n", escape_html(appearance)));
+            header.push_str(&format!(
+                "    {}\n",
+                escape_html(appearance)
+            ));
         }
     }
     header.push_str(&format!(
@@ -44,14 +47,23 @@ pub fn format_structure(tale: &Tale, lang: Lang) -> String {
         out.push_str("<b>Исходная ситуация:</b>\n");
         if let Some(ref setting) = initial.setting {
             if let Some(ref time) = setting.time {
-                out.push_str(&format!("  Время: {}\n", escape_html(time)));
+                out.push_str(&format!(
+                    "  Время: {}\n",
+                    escape_html(time)
+                ));
             }
             if let Some(ref place) = setting.place {
-                out.push_str(&format!("  Место: {}\n", escape_html(place)));
+                out.push_str(&format!(
+                    "  Место: {}\n",
+                    escape_html(place)
+                ));
             }
         }
         if let Some(ref context) = initial.context {
-            out.push_str(&format!("  Контекст: {}\n", escape_html(context)));
+            out.push_str(&format!(
+                "  Контекст: {}\n",
+                escape_html(context)
+            ));
         }
         out.push('\n');
     }
@@ -59,7 +71,8 @@ pub fn format_structure(tale: &Tale, lang: Lang) -> String {
     // Characters
     out.push_str("<b>Персонажи:</b>\n");
     for persona in &tale.personae {
-        let spheres: Vec<_> = persona.spheres.iter().map(|s| s.name(lang)).collect();
+        let spheres: Vec<_> =
+            persona.spheres.iter().map(|s| s.name(lang)).collect();
         out.push_str(&format!(
             "  [{}] {}\n",
             persona.id.0,
@@ -83,7 +96,10 @@ pub fn format_structure(tale: &Tale, lang: Lang) -> String {
                         escape_html(phase.name(lang))
                     ));
                 } else {
-                    out.push_str(&format!("    [{}]\n", escape_html(phase.name(lang))));
+                    out.push_str(&format!(
+                        "    [{}]\n",
+                        escape_html(phase.name(lang))
+                    ));
                 }
             }
 
@@ -115,7 +131,10 @@ pub fn format_structure(tale: &Tale, lang: Lang) -> String {
 
         // Embedded moves
         for (j, emov) in mov.embedded_moves.iter().enumerate() {
-            out.push_str(&format!("\n    <b>Вложенный ход {}:</b>\n", j + 1));
+            out.push_str(&format!(
+                "\n    <b>Вложенный ход {}:</b>\n",
+                j + 1
+            ));
             let mut current_phase: Option<Phase> = None;
             for moment in &emov.moments {
                 let phase = moment.function.function.phase();

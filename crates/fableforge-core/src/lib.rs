@@ -30,7 +30,9 @@ pub mod syntax;
 pub mod tale;
 
 /// Language for localized output.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize,
+)]
 pub enum Lang {
     /// English
     #[default]
@@ -45,7 +47,10 @@ pub use corpus::Corpus;
 pub use dramatis::{Attributes, Persona, PersonaId, Sphere};
 pub use formula::{Formula, FormulaElement, ParseError};
 pub use function::{NarrativeFunction, NarrativeFunctionInstance, Phase};
-pub use generate::{GenConfig, GenError, Generator, RandomGen, Template, TemplateElement, TemplateGen};
-pub use subtype::{subtype, subtype_count, subtypes, SubtypeInfo};
+pub use generate::{
+    GenConfig, GenError, Generator, RandomGen, Template, TemplateElement,
+    TemplateGen,
+};
+pub use subtype::{SubtypeInfo, subtype, subtype_count, subtypes};
 pub use syntax::{Rule, Syntax, SyntaxError, SyntaxWarning, ValidationResult};
 pub use tale::{InitialSituation, Moment, Move, MoveRelation, Setting, Tale};

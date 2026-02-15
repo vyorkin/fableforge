@@ -82,7 +82,12 @@ impl LlmError {
     pub fn is_retryable(&self) -> bool {
         matches!(
             self,
-            LlmError::Http(_) | LlmError::RateLimit { .. } | LlmError::Api { status: Some(500..=599), .. }
+            LlmError::Http(_)
+                | LlmError::RateLimit { .. }
+                | LlmError::Api {
+                    status: Some(500..=599),
+                    ..
+                }
         )
     }
 }

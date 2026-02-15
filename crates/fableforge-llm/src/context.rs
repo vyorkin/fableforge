@@ -151,12 +151,18 @@ mod tests {
     #[test]
     fn test_truncate_text() {
         assert_eq!(truncate_text("short", 10), "short");
-        assert_eq!(truncate_text("this is a longer text", 10), "this is...");
+        assert_eq!(
+            truncate_text("this is a longer text", 10),
+            "this is..."
+        );
     }
 
     #[test]
     fn test_context_character_name_fallback() {
         let ctx = TaleContext::new();
-        assert_eq!(ctx.character_name(PersonaId(1)), "Персонаж 1");
+        assert_eq!(
+            ctx.character_name(PersonaId(1)),
+            "Персонаж 1"
+        );
     }
 }
