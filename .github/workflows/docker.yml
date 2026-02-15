@@ -7,15 +7,22 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build-and-push:
-    name: Build & Push
+    name: Build & Push (${{ matrix.image }})
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+
+    strategy:
+      matrix:
+        include:
+          - image: fableforge
+            dockerfile: docker/Dockerfile
+          - image: fableforge-tg
+            dockerfile: docker/Dockerfile.tg
 
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +36,7 @@ jobs:
       - uses: docker/metadata-action@v5
         id: meta
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha
@@ -39,7 +46,7 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
-          file: docker/Dockerfile
+          file: ${{ matrix.dockerfile }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

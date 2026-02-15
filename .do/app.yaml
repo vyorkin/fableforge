@@ -1,0 +1,19 @@
+spec:
+  name: fableforge-tg
+  region: ams
+  workers:
+    - name: tg-bot
+      image:
+        registry_type: GHCR
+        registry: vyorkin
+        repository: fableforge-tg
+        tag: latest
+      instance_count: 1
+      instance_size_slug: basic-xxs
+      envs:
+        - key: TELOXIDE_TOKEN
+          type: SECRET
+          value: "${TELOXIDE_TOKEN}"
+        - key: ANTHROPIC_API_KEY
+          type: SECRET
+          value: "${ANTHROPIC_API_KEY}"

@@ -52,7 +52,27 @@ cargo run -- generate --provider openrouter --model anthropic/claude-sonnet-4
 docker build -f docker/Dockerfile -t fableforge .
 docker run --rm fableforge structure --moves 1
 docker run --rm -e ANTHROPIC_API_KEY fableforge generate --moves 1
+
+# Telegram bot
+docker build -f docker/Dockerfile.tg -t fableforge-tg .
+docker run --rm -e TELOXIDE_TOKEN -e ANTHROPIC_API_KEY fableforge-tg
 ```
+
+### Deploy to DigitalOcean App Platform
+
+The Telegram bot can be deployed as a worker on [DigitalOcean App Platform](https://www.digitalocean.com/products/app-platform). The app spec lives in `.do/app.yaml`.
+
+**One-time setup:**
+
+1. Create the app:
+   ```bash
+   doctl apps create --spec .do/app.yaml
+   ```
+2. Note the app ID from the output.
+3. Set encrypted env vars in the DO console: `TELOXIDE_TOKEN`, `ANTHROPIC_API_KEY`.
+4. Add GitHub secrets: `DIGITALOCEAN_ACCESS_TOKEN`, `DIGITALOCEAN_APP_ID`.
+
+**CI/CD flow:** push to `main` → Docker workflow builds and pushes both `ghcr.io/vyorkin/fableforge` and `ghcr.io/vyorkin/fableforge-tg` images → deploy workflow triggers a redeployment on App Platform via `doctl`.
 
 ## Architecture
 
