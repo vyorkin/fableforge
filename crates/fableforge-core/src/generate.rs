@@ -3,6 +3,7 @@
 //! Generate fairy tale structures. The actual narrative text will be
 //! produced by an external LLM API based on these structures.
 
+use std::collections::HashSet;
 use std::ops::Range;
 
 use rand::prelude::*;
@@ -156,6 +157,12 @@ impl RandomGen {
             Move::continuation()
         };
 
+        // Track negated functions for this move
+        let mut negated: HashSet<NarrativeFunction> = HashSet::new();
+
+        // Track chosen subtypes for coherence (function → subtype index)
+        let mut chosen_subtypes: Vec<(NarrativeFunction, u8)> = Vec::new();
+
         // Build function sequence following Propp's phases
         let mut functions = Vec::new();
 
@@ -164,6 +171,10 @@ impl RandomGen {
             functions.push(NarrativeFunction::Absentation);
         }
         if self.rng.gen_bool(0.5) {
+            // neg-β (~10%): interdiction implied but not stated; violation still follows
+            if self.rng.gen_bool(0.1) {
+                negated.insert(NarrativeFunction::Interdiction);
+            }
             functions.push(NarrativeFunction::Interdiction);
             functions.push(NarrativeFunction::Violation);
         }
@@ -193,22 +204,33 @@ impl RandomGen {
         functions.push(NarrativeFunction::Departure);
 
         // Donor sequence
-        let mut negate_hero_reaction = false;
         if self.rng.gen_bool(0.7) {
             functions.push(NarrativeFunction::DonorTest);
             functions.push(NarrativeFunction::HeroReaction);
             if self.rng.gen_bool(0.15) {
-                // Hero fails the donor test — no acquisition
-                negate_hero_reaction = true;
+                // neg-E: hero fails the donor test — no acquisition
+                negated.insert(NarrativeFunction::HeroReaction);
             } else {
                 functions.push(NarrativeFunction::Acquisition);
             }
         }
 
         // Struggle sequence
-        if self.rng.gen_bool(0.6) {
+        let has_struggle = self.rng.gen_bool(0.6);
+        if has_struggle {
             functions.push(NarrativeFunction::Guidance);
-            functions.push(NarrativeFunction::Struggle);
+            // neg-H (~15%): struggle doesn't happen, villain defeated by cunning
+            if self.rng.gen_bool(0.15) {
+                negated.insert(NarrativeFunction::Struggle);
+                functions.push(NarrativeFunction::Struggle);
+                // No Branding when struggle is negated; Victory still follows
+            } else {
+                functions.push(NarrativeFunction::Struggle);
+                // Branding (~35%): hero receives mark/wound during struggle
+                if self.rng.gen_bool(0.35) {
+                    functions.push(NarrativeFunction::Branding);
+                }
+            }
             functions.push(NarrativeFunction::Victory);
         }
 
@@ -219,6 +241,10 @@ impl RandomGen {
         functions.push(NarrativeFunction::Return);
         if self.rng.gen_bool(0.4) {
             functions.push(NarrativeFunction::Pursuit);
+            // neg-Rs (~10%): rescue fails, hero escapes on their own
+            if self.rng.gen_bool(0.1) {
+                negated.insert(NarrativeFunction::Rescue);
+            }
             functions.push(NarrativeFunction::Rescue);
         }
 
@@ -244,6 +270,10 @@ impl RandomGen {
             functions.push(NarrativeFunction::Recognition);
         }
         if self.rng.gen_bool(0.3) {
+            // neg-U (~20%): villain is forgiven
+            if self.rng.gen_bool(0.2) {
+                negated.insert(NarrativeFunction::Punishment);
+            }
             functions.push(NarrativeFunction::Punishment);
         }
         if self.rng.gen_bool(0.8) {
@@ -260,11 +290,25 @@ impl RandomGen {
 
         // Add moments with optional subtypes and connectives
         for func in &functions {
-            let instance = if negate_hero_reaction && *func == NarrativeFunction::HeroReaction {
-                NarrativeFunctionInstance::negated(NarrativeFunction::HeroReaction)
+            let is_negated = negated.contains(func);
+            let instance = if is_negated {
+                NarrativeFunctionInstance::negated(*func)
+            } else if include_subtypes {
+                let coherent = self.pick_coherent_subtype(*func, &chosen_subtypes);
+                if let Some(sub) = coherent {
+                    NarrativeFunctionInstance::with_subtype(*func, sub)
+                } else {
+                    self.create_function_instance(*func, true)
+                }
             } else {
-                self.create_function_instance(*func, include_subtypes)
+                NarrativeFunctionInstance::new(*func)
             };
+
+            // Track chosen subtype for coherence
+            if let Some(sub) = instance.subtype {
+                chosen_subtypes.push((*func, sub));
+            }
+
             let mut moment = Moment::new(instance);
 
             // Attach connectives at key narrative transitions (~60% probability)
@@ -292,6 +336,43 @@ impl RandomGen {
             NarrativeFunction::DonorTest | NarrativeFunction::Guidance => {
                 let choice = self.corpus.pick_temporal(&mut self.rng).to_string();
                 Some(Connective::temporal(choice))
+            }
+            _ => None,
+        }
+    }
+
+    /// Pick a coherent subtype based on previously chosen subtypes in the same move.
+    ///
+    /// Returns `Some(subtype_index)` if a coherent mapping exists, `None` otherwise.
+    fn pick_coherent_subtype(
+        &mut self,
+        func: NarrativeFunction,
+        chosen: &[(NarrativeFunction, u8)],
+    ) -> Option<u8> {
+        match func {
+            NarrativeFunction::Liquidation => {
+                // Villainy subtype → preferred Liquidation subtypes
+                let villainy_sub = chosen.iter()
+                    .find(|(f, _)| *f == NarrativeFunction::Villainy)
+                    .map(|(_, s)| *s);
+                match villainy_sub {
+                    Some(1) | Some(15) => Some(10), // kidnapping/imprisonment → captive freed
+                    Some(2) => Some(4),             // theft of magical agent → obtained by magical agent
+                    Some(11) => Some(8),            // casting spell → spell broken
+                    Some(14) => Some(9),            // murder → slain person revived
+                    _ => None,
+                }
+            }
+            NarrativeFunction::Recognition => {
+                // Branding subtype → preferred Recognition subtypes
+                let branding_sub = chosen.iter()
+                    .find(|(f, _)| *f == NarrativeFunction::Branding)
+                    .map(|(_, s)| *s);
+                match branding_sub {
+                    Some(1) => Some(1), // mark on body → recognition by mark
+                    Some(2) => Some(2), // identification token → recognition by token
+                    _ => None,
+                }
             }
             _ => None,
         }
@@ -410,27 +491,58 @@ impl RandomGen {
 
     /// Generate an embedded move — a secondary quest (вложенный ход).
     ///
-    /// Embedded moves are always Lack-based (simpler secondary quest),
-    /// skip the preparatory phase, and always resolve.
+    /// Two variants:
+    /// - Lack-based (60%): simpler secondary quest starting with Lack
+    /// - Villainy-based (40%): embedded villainy with optional struggle
     fn generate_embedded_move(&mut self, include_subtypes: bool) -> Move {
         let mut m = Move::embedded();
         let mut functions = Vec::new();
 
-        // Lack-based complication (no preparatory phase)
-        functions.push(NarrativeFunction::Lack);
-        functions.push(NarrativeFunction::Counteraction);
-        functions.push(NarrativeFunction::Departure);
-
-        // Optional donor sequence (60%)
         if self.rng.gen_bool(0.6) {
-            functions.push(NarrativeFunction::DonorTest);
-            functions.push(NarrativeFunction::HeroReaction);
-            functions.push(NarrativeFunction::Acquisition);
+            // Variant A: Lack-based (no preparatory phase)
+            functions.push(NarrativeFunction::Lack);
+            functions.push(NarrativeFunction::Counteraction);
+            functions.push(NarrativeFunction::Departure);
+
+            // Optional donor sequence (60%)
+            if self.rng.gen_bool(0.6) {
+                functions.push(NarrativeFunction::DonorTest);
+                functions.push(NarrativeFunction::HeroReaction);
+                functions.push(NarrativeFunction::Acquisition);
+            }
+
+            // Always resolves
+            functions.push(NarrativeFunction::Liquidation);
+            functions.push(NarrativeFunction::Return);
+        } else {
+            // Variant B: Villainy-based embedded move
+            functions.push(NarrativeFunction::Villainy);
+            functions.push(NarrativeFunction::Counteraction);
+            functions.push(NarrativeFunction::Departure);
+
+            // Optional donor sequence (40%)
+            if self.rng.gen_bool(0.4) {
+                functions.push(NarrativeFunction::DonorTest);
+                functions.push(NarrativeFunction::HeroReaction);
+                functions.push(NarrativeFunction::Acquisition);
+            }
+
+            // Optional struggle sequence (50%)
+            if self.rng.gen_bool(0.5) {
+                functions.push(NarrativeFunction::Guidance);
+                functions.push(NarrativeFunction::Struggle);
+                functions.push(NarrativeFunction::Victory);
+            }
+
+            functions.push(NarrativeFunction::Liquidation);
+            functions.push(NarrativeFunction::Return);
         }
 
-        // Always resolves
-        functions.push(NarrativeFunction::Liquidation);
-        functions.push(NarrativeFunction::Return);
+        // Optional Pursuit + Rescue (30%) for both variants
+        if self.rng.gen_bool(0.3) {
+            functions.push(NarrativeFunction::Pursuit);
+            functions.push(NarrativeFunction::Rescue);
+        }
 
         for func in &functions {
             let instance = self.create_function_instance(*func, include_subtypes);
@@ -1013,12 +1125,13 @@ mod tests {
                         // Verify embedded move structure
                         let em = &mov.embedded_moves[0];
                         assert_eq!(em.relation, crate::tale::MoveRelation::Embedded);
-                        // Should start with Lack (not Villainy)
-                        assert_eq!(
-                            em.moments[0].function.function,
-                            NarrativeFunction::Lack,
-                            "Seed {}: embedded move should start with Lack",
-                            seed
+                        // Should start with Lack or Villainy
+                        let first_func = em.moments[0].function.function;
+                        assert!(
+                            first_func == NarrativeFunction::Lack
+                                || first_func == NarrativeFunction::Villainy,
+                            "Seed {}: embedded move should start with Lack or Villainy, got {:?}",
+                            seed, first_func
                         );
                         // Should always have Liquidation and Return
                         let has_liquidation = em.moments.iter().any(|m| {
@@ -1110,5 +1223,169 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_branding_generated() {
+        // Scan seeds to find one where Branding appears
+        let mut found = false;
+        for seed in 0..300 {
+            let mut generator = RandomGen::with_seed(seed);
+            let config = GenConfig::new()
+                .with_max_absurdity(0.8)
+                .with_move_count(1..2)
+                .with_seed(seed);
+
+            if let Ok(tale) = generator.generate(&config) {
+                let has_branding = tale.all_moments().any(|m| {
+                    m.function.function == NarrativeFunction::Branding
+                });
+                if has_branding {
+                    // Verify Branding appears between Struggle and Victory
+                    for mov in &tale.moves {
+                        let funcs: Vec<_> = mov.moments.iter()
+                            .map(|m| m.function.function)
+                            .collect();
+                        if let Some(brand_pos) = funcs.iter().position(|f| *f == NarrativeFunction::Branding) {
+                            let struggle_pos = funcs.iter().position(|f| *f == NarrativeFunction::Struggle);
+                            let victory_pos = funcs.iter().position(|f| *f == NarrativeFunction::Victory);
+                            assert!(struggle_pos.is_some(), "Seed {}: Branding without Struggle", seed);
+                            assert!(victory_pos.is_some(), "Seed {}: Branding without Victory", seed);
+                            assert!(brand_pos > struggle_pos.unwrap(), "Seed {}: Branding before Struggle", seed);
+                            assert!(brand_pos < victory_pos.unwrap(), "Seed {}: Branding after Victory", seed);
+                        }
+                    }
+                    found = true;
+                    break;
+                }
+            }
+        }
+        assert!(found, "Expected Branding in at least one of 300 seeds");
+    }
+
+    #[test]
+    fn test_negation_variety() {
+        // Verify that negation applies to different functions, not just HeroReaction
+        let mut negated_functions: HashSet<NarrativeFunction> = HashSet::new();
+        for seed in 0..500 {
+            let mut generator = RandomGen::with_seed(seed);
+            let config = GenConfig::new()
+                .with_max_absurdity(0.8)
+                .with_move_count(1..2)
+                .with_seed(seed);
+
+            if let Ok(tale) = generator.generate(&config) {
+                for moment in tale.all_moments() {
+                    if moment.function.negated {
+                        negated_functions.insert(moment.function.function);
+                    }
+                }
+            }
+        }
+        // Should have negation on at least 2 different functions
+        assert!(
+            negated_functions.len() >= 2,
+            "Expected negation on at least 2 different functions, got {:?}",
+            negated_functions
+        );
+    }
+
+    #[test]
+    fn test_villainy_liquidation_coherence() {
+        // When Villainy subtype is "kidnapping" (1), Liquidation should be "captive freed" (10)
+        let mut found = false;
+        for seed in 0..500 {
+            let mut generator = RandomGen::with_seed(seed);
+            let config = GenConfig::new()
+                .with_max_absurdity(0.8)
+                .with_move_count(1..2)
+                .with_seed(seed)
+                .with_subtypes(true);
+
+            if let Ok(tale) = generator.generate(&config) {
+                for mov in &tale.moves {
+                    let villainy = mov.moments.iter().find(|m| {
+                        m.function.function == NarrativeFunction::Villainy
+                    });
+                    let liquidation = mov.moments.iter().find(|m| {
+                        m.function.function == NarrativeFunction::Liquidation
+                    });
+                    if let (Some(v), Some(l)) = (villainy, liquidation) {
+                        if v.function.subtype == Some(1) {
+                            // Kidnapping → captive freed
+                            assert_eq!(
+                                l.function.subtype, Some(10),
+                                "Seed {}: Villainy kidnapping (1) should map to Liquidation captive freed (10), got {:?}",
+                                seed, l.function.subtype
+                            );
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                if found { break; }
+            }
+        }
+        assert!(found, "Expected Villainy kidnapping → Liquidation captive freed in at least one of 500 seeds");
+    }
+
+    #[test]
+    fn test_embedded_move_villainy_variant() {
+        // Verify that embedded moves can start with Villainy
+        let mut found = false;
+        for seed in 0..500 {
+            let mut generator = RandomGen::with_seed(seed);
+            let config = GenConfig::new()
+                .with_max_absurdity(0.8)
+                .with_move_count(1..3)
+                .with_seed(seed);
+
+            if let Ok(tale) = generator.generate(&config) {
+                for mov in &tale.moves {
+                    for em in &mov.embedded_moves {
+                        if em.moments[0].function.function == NarrativeFunction::Villainy {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if found { break; }
+                }
+                if found { break; }
+            }
+        }
+        assert!(found, "Expected Villainy-based embedded move in at least one of 500 seeds");
+    }
+
+    #[test]
+    fn test_embedded_move_with_pursuit() {
+        // Verify that embedded moves can have Pursuit + Rescue
+        let mut found = false;
+        for seed in 0..500 {
+            let mut generator = RandomGen::with_seed(seed);
+            let config = GenConfig::new()
+                .with_max_absurdity(0.8)
+                .with_move_count(1..3)
+                .with_seed(seed);
+
+            if let Ok(tale) = generator.generate(&config) {
+                for mov in &tale.moves {
+                    for em in &mov.embedded_moves {
+                        let has_pursuit = em.moments.iter().any(|m| {
+                            m.function.function == NarrativeFunction::Pursuit
+                        });
+                        let has_rescue = em.moments.iter().any(|m| {
+                            m.function.function == NarrativeFunction::Rescue
+                        });
+                        if has_pursuit && has_rescue {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if found { break; }
+                }
+                if found { break; }
+            }
+        }
+        assert!(found, "Expected embedded move with Pursuit+Rescue in at least one of 500 seeds");
     }
 }
