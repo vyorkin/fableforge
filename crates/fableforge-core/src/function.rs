@@ -88,8 +88,8 @@ pub enum NarrativeFunction {
     Transfiguration = 29,
     /// U — punishment (наказание)
     Punishment = 30,
-    /// W — wedding (свадьба)
-    Wedding = 31,
+    /// W — happy ending (счастливый конец)
+    HappyEnding = 31,
 }
 
 impl NarrativeFunction {
@@ -126,7 +126,7 @@ impl NarrativeFunction {
         NarrativeFunction::Exposure,
         NarrativeFunction::Transfiguration,
         NarrativeFunction::Punishment,
-        NarrativeFunction::Wedding,
+        NarrativeFunction::HappyEnding,
     ];
 
     /// Propp's symbol for the function (символ Проппа).
@@ -164,7 +164,7 @@ impl NarrativeFunction {
             NarrativeFunction::Exposure => "Ex",
             NarrativeFunction::Transfiguration => "T",
             NarrativeFunction::Punishment => "U",
-            NarrativeFunction::Wedding => "W",
+            NarrativeFunction::HappyEnding => "W",
         }
     }
 
@@ -206,7 +206,7 @@ impl NarrativeFunction {
                 NarrativeFunction::Exposure => "Exposure",
                 NarrativeFunction::Transfiguration => "Transfiguration",
                 NarrativeFunction::Punishment => "Punishment",
-                NarrativeFunction::Wedding => "Wedding",
+                NarrativeFunction::HappyEnding => "Happy Ending",
             },
             Lang::Ru => match self {
                 NarrativeFunction::Absentation => "Отлучка",
@@ -240,7 +240,7 @@ impl NarrativeFunction {
                 NarrativeFunction::Exposure => "Обличение",
                 NarrativeFunction::Transfiguration => "Трансфигурация",
                 NarrativeFunction::Punishment => "Наказание",
-                NarrativeFunction::Wedding => "Свадьба",
+                NarrativeFunction::HappyEnding => "Счастливый конец",
             },
         }
     }
@@ -286,7 +286,7 @@ impl NarrativeFunction {
             | NarrativeFunction::Exposure
             | NarrativeFunction::Transfiguration
             | NarrativeFunction::Punishment
-            | NarrativeFunction::Wedding => Phase::Resolution,
+            | NarrativeFunction::HappyEnding => Phase::Resolution,
         }
     }
 
@@ -345,7 +345,7 @@ impl NarrativeFunction {
             "Ex" => Some(NarrativeFunction::Exposure),
             "T" => Some(NarrativeFunction::Transfiguration),
             "U" => Some(NarrativeFunction::Punishment),
-            "W" => Some(NarrativeFunction::Wedding),
+            "W" => Some(NarrativeFunction::HappyEnding),
             _ => None,
         }
     }
@@ -564,7 +564,7 @@ mod tests {
             "↑"
         );
         assert_eq!(NarrativeFunction::Return.symbol(), "↓");
-        assert_eq!(NarrativeFunction::Wedding.symbol(), "W");
+        assert_eq!(NarrativeFunction::HappyEnding.symbol(), "W");
     }
 
     #[test]
@@ -606,7 +606,7 @@ mod tests {
             Phase::Recognition
         );
         assert_eq!(
-            NarrativeFunction::Wedding.phase(),
+            NarrativeFunction::HappyEnding.phase(),
             Phase::Resolution
         );
     }
@@ -617,7 +617,7 @@ mod tests {
         assert!(NarrativeFunction::Lack.is_core());
         assert!(NarrativeFunction::Liquidation.is_core());
         assert!(!NarrativeFunction::Absentation.is_core());
-        assert!(!NarrativeFunction::Wedding.is_core());
+        assert!(!NarrativeFunction::HappyEnding.is_core());
     }
 
     #[test]
@@ -626,11 +626,11 @@ mod tests {
             NarrativeFunction::Absentation.index(),
             0
         );
-        assert_eq!(NarrativeFunction::Wedding.index(), 31);
+        assert_eq!(NarrativeFunction::HappyEnding.index(), 31);
         // Verify repr(u8) works correctly
         assert_eq!(u8::from(NarrativeFunction::Villainy), 7);
         assert_eq!(
-            usize::from(NarrativeFunction::Wedding),
+            usize::from(NarrativeFunction::HappyEnding),
             31
         );
     }

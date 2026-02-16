@@ -335,7 +335,7 @@ impl Formula {
         if funcs.iter().any(|f| {
             matches!(
                 f,
-                NarrativeFunction::Recognition | NarrativeFunction::Wedding
+                NarrativeFunction::Recognition | NarrativeFunction::HappyEnding
             )
         }) {
             personae.push(Persona::new(
@@ -849,7 +849,7 @@ mod tests {
 
         let mut m2 = Move::continuation();
         m2.add_function(NarrativeFunction::Return);
-        m2.add_function(NarrativeFunction::Wedding);
+        m2.add_function(NarrativeFunction::HappyEnding);
         tale.moves.push(m2);
 
         let formula = Formula::from_tale(&tale);
@@ -911,7 +911,7 @@ mod tests {
         m.add_function(NarrativeFunction::Departure);
         m.add_function(NarrativeFunction::Liquidation);
         m.add_function(NarrativeFunction::Return);
-        m.add_function(NarrativeFunction::Wedding);
+        m.add_function(NarrativeFunction::HappyEnding);
         tale.moves.push(m);
 
         let formula = Formula::from_tale(&tale);
@@ -947,7 +947,7 @@ mod tests {
                 NarrativeFunction::Departure,
                 NarrativeFunction::Liquidation,
                 NarrativeFunction::Return,
-                NarrativeFunction::Wedding,
+                NarrativeFunction::HappyEnding,
             ]
         );
 

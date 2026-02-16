@@ -284,7 +284,7 @@ impl RandomGen {
             functions.push(NarrativeFunction::Punishment);
         }
         if self.rng.gen_bool(0.8) {
-            functions.push(NarrativeFunction::Wedding);
+            functions.push(NarrativeFunction::HappyEnding);
         }
 
         // Check if donor sequence is present (for triplication)
@@ -902,7 +902,7 @@ impl Template {
                 Optional(Box::new(Fixed(Rescue))),
                 Optional(Box::new(Fixed(Recognition))),
                 Optional(Box::new(Fixed(Punishment))),
-                Fixed(Wedding),
+                Fixed(HappyEnding),
             ],
         }
     }

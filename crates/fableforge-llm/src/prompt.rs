@@ -257,7 +257,7 @@ Introduce the characters, show their ordinary life before the events begin."#
                     prompt.push_str(&format!("\n\nContext: {}", context));
                 }
 
-                prompt.push_str("\n\nLength: 2-3 paragraphs.");
+                prompt.push_str("\n\nIMPORTANT: Write only narrative text. Do not use technical terminology or morphological symbols in the story text itself.\n\nLength: 2-3 paragraphs.");
                 prompt
             }
             Lang::Ru => {
@@ -290,7 +290,7 @@ Introduce the characters, show their ordinary life before the events begin."#
                     prompt.push_str(&format!("\n\nКонтекст: {}", context));
                 }
 
-                prompt.push_str("\n\nДлина: 2-3 абзаца.");
+                prompt.push_str("\n\nВАЖНО: Пиши только художественный текст. Не используй в самом тексте технические термины или морфологические символы.\n\nДлина: 2-3 абзаца.");
                 prompt
             }
         }
@@ -333,11 +333,7 @@ Introduce the characters, show their ordinary life before the events begin."#
 
         for moment in &episode.moments {
             let func_desc = moment.function.full_description(self.lang);
-            let symbol = moment.function.to_notation();
-            moments_section.push_str(&format!(
-                "- {} ({})\n",
-                func_desc, symbol
-            ));
+            moments_section.push_str(&format!("- {}\n", func_desc));
 
             let (agent_label, patient_label) = match self.lang {
                 Lang::En => ("  Agent", "  Patient"),
@@ -388,6 +384,8 @@ In this episode, the following should happen:
 {moments_section}
 Write this fragment of the story, seamlessly continuing from the previous text.
 
+IMPORTANT: Write only narrative text. Do not use technical terminology from narrative structure analysis (function names like "departure", "prohibition", "struggle", "wedding", etc.) or morphological symbols/notation in the story text itself.
+
 Length: 2-4 paragraphs."#
                 )
             }
@@ -412,6 +410,8 @@ Length: 2-4 paragraphs."#
 В этом эпизоде должно произойти:
 {moments_section}
 Напиши этот фрагмент истории, органично продолжая предыдущий текст.
+
+ВАЖНО: Пиши только художественный текст. Не используй в самом тексте истории технические термины морфологического анализа (названия функций вроде "отлучка", "запрет", "борьба", "свадьба" и т.д.) или морфологические символы/обозначения. Эти термины служат только для указания содержания эпизода, но не должны появляться в финальном тексте.
 
 Длина: 2-4 абзаца."#
                 )

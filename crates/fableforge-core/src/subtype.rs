@@ -63,7 +63,7 @@ pub fn subtypes(function: NarrativeFunction) -> &'static [SubtypeInfo] {
         NarrativeFunction::Exposure => EXPOSURE_SUBTYPES,
         NarrativeFunction::Transfiguration => TRANSFIGURATION_SUBTYPES,
         NarrativeFunction::Punishment => PUNISHMENT_SUBTYPES,
-        NarrativeFunction::Wedding => WEDDING_SUBTYPES,
+        NarrativeFunction::HappyEnding => HAPPY_ENDING_SUBTYPES,
     }
 }
 
@@ -980,8 +980,9 @@ const PUNISHMENT_SUBTYPES: &[SubtypeInfo] = &[
     },
 ];
 
-/// W — Wedding (Свадьба)
-const WEDDING_SUBTYPES: &[SubtypeInfo] = &[
+/// W — Happy Ending (Счастливый конец)
+const HAPPY_ENDING_SUBTYPES: &[SubtypeInfo] = &[
+    // Traditional fairy tale endings
     SubtypeInfo {
         index: 1,
         name_ru: "Свадьба и воцарение",
@@ -989,13 +990,13 @@ const WEDDING_SUBTYPES: &[SubtypeInfo] = &[
     },
     SubtypeInfo {
         index: 2,
-        name_ru: "Только свадьба",
-        name_en: "Wedding only",
+        name_ru: "Свадьба",
+        name_en: "Wedding",
     },
     SubtypeInfo {
         index: 3,
-        name_ru: "Только воцарение",
-        name_en: "Accession to throne only",
+        name_ru: "Воцарение",
+        name_en: "Accession to throne",
     },
     SubtypeInfo {
         index: 4,
@@ -1011,6 +1012,78 @@ const WEDDING_SUBTYPES: &[SubtypeInfo] = &[
         index: 6,
         name_ru: "Денежное вознаграждение",
         name_en: "Monetary reward",
+    },
+
+    // Universal endings for any genre
+    SubtypeInfo {
+        index: 7,
+        name_ru: "Воссоединение с близкими",
+        name_en: "Reunion with loved ones",
+    },
+    SubtypeInfo {
+        index: 8,
+        name_ru: "Триумф и признание",
+        name_en: "Triumph and recognition",
+    },
+    SubtypeInfo {
+        index: 9,
+        name_ru: "Искупление",
+        name_en: "Redemption",
+    },
+    SubtypeInfo {
+        index: 10,
+        name_ru: "Примирение",
+        name_en: "Reconciliation",
+    },
+    SubtypeInfo {
+        index: 11,
+        name_ru: "Обретение дома",
+        name_en: "Finding home",
+    },
+    SubtypeInfo {
+        index: 12,
+        name_ru: "Справедливость восторжествовала",
+        name_en: "Justice prevails",
+    },
+    SubtypeInfo {
+        index: 13,
+        name_ru: "Великое открытие",
+        name_en: "Great discovery",
+    },
+    SubtypeInfo {
+        index: 14,
+        name_ru: "Выживание",
+        name_en: "Survival",
+    },
+    SubtypeInfo {
+        index: 15,
+        name_ru: "Жертва героя",
+        name_en: "Hero's sacrifice",
+    },
+    SubtypeInfo {
+        index: 16,
+        name_ru: "Обретение свободы",
+        name_en: "Gaining freedom",
+    },
+    SubtypeInfo {
+        index: 17,
+        name_ru: "Внутреннее преображение",
+        name_en: "Inner transformation",
+    },
+    SubtypeInfo {
+        index: 18,
+        name_ru: "Новое начало",
+        name_en: "New beginning",
+    },
+    SubtypeInfo {
+        index: 19,
+        name_ru: "Восстановление порядка",
+        name_en: "Restoration of order",
+    },
+    SubtypeInfo {
+        index: 20,
+        name_ru: "Достижение цели",
+        name_en: "Achievement of goal",
     },
 ];
 

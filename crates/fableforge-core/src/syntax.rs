@@ -504,7 +504,7 @@ mod tests {
             NarrativeFunction::Departure,
             NarrativeFunction::Liquidation,
             NarrativeFunction::Return,
-            NarrativeFunction::Wedding,
+            NarrativeFunction::HappyEnding,
         ]);
 
         let result = syntax.validate_move(&m);
