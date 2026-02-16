@@ -147,6 +147,7 @@ async fn handle_command(
                     genre: None,
                     tone: None,
                     moves: 1,
+                    character_names: Vec::new(),
                     place: None,
                     max_episodes: None,
                     max_moments_per_episode: None,
@@ -174,10 +175,39 @@ async fn handle_text_input(
     let text = msg.text().unwrap_or("");
 
     match state {
+        BotState::AwaitCharacterNames { genre, tone, moves } => {
+            let character_names: Vec<String> = if text.trim().is_empty() {
+                Vec::new()
+            } else {
+                text.split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect()
+            };
+
+            let keyboard = place_keyboard();
+            bot.send_message(
+                msg.chat.id,
+                "Описать место действия?\n\
+                 Нажмите \"Пропустить\" или кнопку \"Ввести описание\":",
+            )
+            .reply_markup(keyboard)
+            .await?;
+
+            dialogue
+                .update(BotState::SelectPlace {
+                    genre,
+                    tone,
+                    moves,
+                    character_names,
+                })
+                .await?;
+        }
         BotState::AwaitPlaceText {
             genre,
             tone,
             moves,
+            character_names,
         } => {
             let place = if text.trim().is_empty() {
                 None
@@ -198,6 +228,7 @@ async fn handle_text_input(
                     genre,
                     tone,
                     moves,
+                    character_names,
                     place,
                 })
                 .await?;
@@ -206,6 +237,7 @@ async fn handle_text_input(
             genre,
             tone,
             moves,
+            character_names,
             place,
             max_episodes,
             max_moments_per_episode,
@@ -215,6 +247,7 @@ async fn handle_text_input(
                 genre,
                 tone,
                 moves,
+                character_names,
                 place,
                 max_episodes,
                 max_moments_per_episode,
@@ -273,19 +306,58 @@ async fn handle_callback(
                 .strip_prefix("moves:")
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(1);
-            let keyboard = place_keyboard();
+            let keyboard = character_names_keyboard();
             bot.send_message(
                 chat_id,
-                "Описать место действия?\n\
-                 Нажмите \"Пропустить\" или кнопку \"Ввести описание\":",
+                "Задать имена персонажам?\n\
+                 Можно указать имена и краткие описания героев сказки:",
             )
             .reply_markup(keyboard)
             .await?;
             dialogue
-                .update(BotState::SelectPlace { genre, tone, moves })
+                .update(BotState::SelectCharacterNames { genre, tone, moves })
                 .await?;
         }
-        BotState::SelectPlace { genre, tone, moves } => {
+        BotState::SelectCharacterNames { genre, tone, moves } => {
+            if data == "names:skip" {
+                let keyboard = place_keyboard();
+                bot.send_message(
+                    chat_id,
+                    "Описать место действия?\n\
+                     Нажмите \"Пропустить\" или кнопку \"Ввести описание\":",
+                )
+                .reply_markup(keyboard)
+                .await?;
+                dialogue
+                    .update(BotState::SelectPlace {
+                        genre,
+                        tone,
+                        moves,
+                        character_names: Vec::new(),
+                    })
+                    .await?;
+            } else if data == "names:enter" {
+                bot.send_message(
+                    chat_id,
+                    "Введите имена персонажей через запятую:\n\n\
+                     Примеры:\n\
+                     • Иван-царевич, Василиса Прекрасная, Кощей\n\
+                     • Детектив Миллер, Профессор Чен\n\
+                     • Капитан Нова, Механик Зед\n\n\
+                     Имена будут присвоены персонажам по порядку.",
+                )
+                .await?;
+                dialogue
+                    .update(BotState::AwaitCharacterNames { genre, tone, moves })
+                    .await?;
+            }
+        }
+        BotState::SelectPlace {
+            genre,
+            tone,
+            moves,
+            character_names,
+        } => {
             if data == "place:skip" {
                 let keyboard = max_episodes_keyboard();
                 bot.send_message(
@@ -299,6 +371,7 @@ async fn handle_callback(
                         genre,
                         tone,
                         moves,
+                        character_names,
                         place: None,
                     })
                     .await?;
@@ -310,7 +383,12 @@ async fn handle_callback(
                 )
                 .await?;
                 dialogue
-                    .update(BotState::AwaitPlaceText { genre, tone, moves })
+                    .update(BotState::AwaitPlaceText {
+                        genre,
+                        tone,
+                        moves,
+                        character_names,
+                    })
                     .await?;
             }
         }
@@ -318,6 +396,7 @@ async fn handle_callback(
             genre,
             tone,
             moves,
+            character_names,
             place,
         } => {
             let max_episodes = parse_callback_value(&data, "maxepisodes");
@@ -333,6 +412,7 @@ async fn handle_callback(
                     genre,
                     tone,
                     moves,
+                    character_names,
                     place,
                     max_episodes: max_episodes.and_then(|v| v.parse().ok()),
                 })
@@ -342,6 +422,7 @@ async fn handle_callback(
             genre,
             tone,
             moves,
+            character_names,
             place,
             max_episodes,
         } => {
@@ -359,6 +440,7 @@ async fn handle_callback(
                     genre,
                     tone,
                     moves,
+                    character_names,
                     place,
                     max_episodes,
                     max_moments_per_episode: max_moments_per_episode.and_then(|v| v.parse().ok()),
@@ -369,6 +451,7 @@ async fn handle_callback(
             genre,
             tone,
             moves,
+            character_names,
             place,
             max_episodes,
             max_moments_per_episode,
@@ -382,6 +465,7 @@ async fn handle_callback(
                 genre,
                 tone,
                 moves,
+                character_names,
                 place,
                 max_episodes,
                 max_moments_per_episode,
@@ -442,6 +526,13 @@ fn moves_keyboard() -> InlineKeyboardMarkup {
         InlineKeyboardButton::callback("1", "moves:1"),
         InlineKeyboardButton::callback("2", "moves:2"),
         InlineKeyboardButton::callback("3", "moves:3"),
+    ]])
+}
+
+fn character_names_keyboard() -> InlineKeyboardMarkup {
+    InlineKeyboardMarkup::new(vec![vec![
+        InlineKeyboardButton::callback("Задать имена", "names:enter"),
+        InlineKeyboardButton::callback("Пропустить", "names:skip"),
     ]])
 }
 
@@ -516,6 +607,15 @@ async fn do_generate(
             return Ok(());
         }
     };
+
+    // Apply character names to personae if provided
+    if !config.character_names.is_empty() {
+        for (idx, name) in config.character_names.iter().enumerate() {
+            if let Some(persona) = tale.personae.get_mut(idx) {
+                persona.attributes.insert("name".to_string(), name.clone());
+            }
+        }
+    }
 
     // Apply place to initial situation if provided
     if let Some(ref place) = config.place {
