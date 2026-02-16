@@ -34,22 +34,22 @@ async fn main() {
 }
 
 fn resolve_llm_provider() -> Option<LlmProvider> {
-    // Try Claude first
+    // Try OpenRouter first
+    if let Ok(api_key) = std::env::var("OPENROUTER_API_KEY")
+        && !api_key.is_empty()
+    {
+        let model = std::env::var("OPENROUTER_MODEL")
+            .unwrap_or_else(|_| "deepseek/deepseek-v3.2".to_string());
+        return Some(LlmProvider::OpenRouter { api_key, model });
+    }
+
+    // Try Claude
     if let Ok(api_key) = std::env::var("ANTHROPIC_API_KEY")
         && !api_key.is_empty()
     {
         let model = std::env::var("ANTHROPIC_MODEL")
             .unwrap_or_else(|_| "claude-sonnet-4-20250514".to_string());
         return Some(LlmProvider::Claude { api_key, model });
-    }
-
-    // Try OpenRouter
-    if let Ok(api_key) = std::env::var("OPENROUTER_API_KEY")
-        && !api_key.is_empty()
-    {
-        let model = std::env::var("OPENROUTER_MODEL")
-            .unwrap_or_else(|_| "anthropic/claude-sonnet-4".to_string());
-        return Some(LlmProvider::OpenRouter { api_key, model });
     }
 
     None

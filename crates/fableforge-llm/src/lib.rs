@@ -34,8 +34,8 @@
 //!         .tone("напряжённый, тревожный");
 //!
 //!     // Create client and generate
-//!     let client = ClaudeClient::new(std::env::var("ANTHROPIC_API_KEY")?)
-//!         .with_model("claude-sonnet-4-20250514");
+//!     let client = ClaudeClient::new(std::env::var("OPENROUTER_API_KEY")?)
+//!         .with_model("deepseek/deepseek-v3.2");
 //!
 //!     let composer = StoryComposer::new(client, style);
 //!     let result = composer.compose(&tale).await?;

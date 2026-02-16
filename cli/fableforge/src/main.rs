@@ -227,8 +227,8 @@ async fn generate_tale(args: GenerateArgs) -> Result<()> {
 
     // API key resolution (--api-key overrides env var)
     let env_key = match provider.as_str() {
-        "openrouter" => "OPENROUTER_API_KEY",
-        _ => "ANTHROPIC_API_KEY",
+        "anthropic" => "ANTHROPIC_API_KEY",
+        _ => "OPENROUTER_API_KEY",
     };
     let api_key =
         api_key
