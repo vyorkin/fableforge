@@ -89,15 +89,15 @@ impl<C: LlmClient> StoryComposer<C> {
         );
 
         // Apply episode limit if specified
-        if let Some(max_eps) = self.max_episodes {
-            if episodes.len() > max_eps {
-                info!(
-                    "Limiting episodes from {} to {}",
-                    episodes.len(),
-                    max_eps
-                );
-                episodes.truncate(max_eps);
-            }
+        if let Some(max_eps) = self.max_episodes
+            && episodes.len() > max_eps
+        {
+            info!(
+                "Limiting episodes from {} to {}",
+                episodes.len(),
+                max_eps
+            );
+            episodes.truncate(max_eps);
         }
 
         // Apply moments per episode limit if specified
@@ -142,8 +142,7 @@ impl<C: LlmClient> StoryComposer<C> {
                 if current_length >= max_chars {
                     info!(
                         "Character limit reached ({}/{}), stopping generation",
-                        current_length,
-                        max_chars
+                        current_length, max_chars
                     );
                     break;
                 }
