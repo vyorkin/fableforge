@@ -64,9 +64,10 @@ docker run --rm -e OPENROUTER_API_KEY fableforge generate --provider openrouter 
 # With Anthropic API
 docker run --rm -e ANTHROPIC_API_KEY fableforge generate --moves 1
 
-# Telegram bot
+# Telegram bot (interactive generation with place descriptions, episode/moment limits)
 docker build -f docker/Dockerfile.tg -t fableforge-tg .
 docker run --rm -e TELOXIDE_TOKEN -e OPENROUTER_API_KEY fableforge-tg
+# See TELEGRAM_BOT_FEATURES.md for details on interactive dialogue
 ```
 
 ### Deploy to DigitalOcean App Platform
@@ -98,7 +99,7 @@ crates/fableforge-tg (binary) → fableforge-llm → fableforge-core
 
 **fableforge-llm** — LLM integration (Claude API, OpenRouter). `LlmClient` trait for provider abstraction, `StoryComposer` for two-phase generation, `PromptBuilder` with `StyleConfig`, episode segmentation by Propp's phases, coherence evaluation.
 
-**fableforge-tg** — Telegram bot for interactive tale generation via inline keyboards.
+**fableforge-tg** — Telegram bot for interactive tale generation via inline keyboards. Supports place descriptions, episode/moment limits, and all style options. See [TELEGRAM_BOT_FEATURES.md](TELEGRAM_BOT_FEATURES.md) for details.
 
 **cli/fableforge** — CLI with two subcommands: `generate` and `structure`.
 

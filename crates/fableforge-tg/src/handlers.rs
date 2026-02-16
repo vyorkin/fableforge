@@ -147,6 +147,9 @@ async fn handle_command(
                     genre: None,
                     tone: None,
                     moves: 1,
+                    place: None,
+                    max_episodes: None,
+                    max_moments_per_episode: None,
                     seed: None,
                 },
             )
@@ -171,12 +174,50 @@ async fn handle_text_input(
     let text = msg.text().unwrap_or("");
 
     match state {
-        BotState::SelectSeed { genre, tone, moves } => {
+        BotState::AwaitPlaceText {
+            genre,
+            tone,
+            moves,
+        } => {
+            let place = if text.trim().is_empty() {
+                None
+            } else {
+                Some(text.trim().to_string())
+            };
+
+            let keyboard = max_episodes_keyboard();
+            bot.send_message(
+                msg.chat.id,
+                "Максимальное количество эпизодов:",
+            )
+            .reply_markup(keyboard)
+            .await?;
+
+            dialogue
+                .update(BotState::SelectMaxEpisodes {
+                    genre,
+                    tone,
+                    moves,
+                    place,
+                })
+                .await?;
+        }
+        BotState::SelectSeed {
+            genre,
+            tone,
+            moves,
+            place,
+            max_episodes,
+            max_moments_per_episode,
+        } => {
             let seed = text.trim().parse::<u64>().ok();
             let config = GenerateConfig {
                 genre,
                 tone,
                 moves,
+                place,
+                max_episodes,
+                max_moments_per_episode,
                 seed,
             };
             dialogue.update(BotState::Start).await?;
@@ -232,6 +273,79 @@ async fn handle_callback(
                 .strip_prefix("moves:")
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(1);
+            let keyboard = place_keyboard();
+            bot.send_message(
+                chat_id,
+                "Описать место действия?\n\
+                 Нажмите \"Пропустить\" или кнопку \"Ввести описание\":",
+            )
+            .reply_markup(keyboard)
+            .await?;
+            dialogue
+                .update(BotState::SelectPlace { genre, tone, moves })
+                .await?;
+        }
+        BotState::SelectPlace { genre, tone, moves } => {
+            if data == "place:skip" {
+                let keyboard = max_episodes_keyboard();
+                bot.send_message(
+                    chat_id,
+                    "Максимальное количество эпизодов:",
+                )
+                .reply_markup(keyboard)
+                .await?;
+                dialogue
+                    .update(BotState::SelectMaxEpisodes {
+                        genre,
+                        tone,
+                        moves,
+                        place: None,
+                    })
+                    .await?;
+            } else if data == "place:enter" {
+                bot.send_message(
+                    chat_id,
+                    "Введите описание места действия:\n\
+                     (например: \"тридевятое царство\", \"космическая станция\", \"туманный Лондон XIX века\")",
+                )
+                .await?;
+                dialogue
+                    .update(BotState::AwaitPlaceText { genre, tone, moves })
+                    .await?;
+            }
+        }
+        BotState::SelectMaxEpisodes {
+            genre,
+            tone,
+            moves,
+            place,
+        } => {
+            let max_episodes = parse_callback_value(&data, "maxepisodes");
+            let keyboard = max_moments_keyboard();
+            bot.send_message(
+                chat_id,
+                "Максимальное количество моментов на эпизод:",
+            )
+            .reply_markup(keyboard)
+            .await?;
+            dialogue
+                .update(BotState::SelectMaxMoments {
+                    genre,
+                    tone,
+                    moves,
+                    place,
+                    max_episodes: max_episodes.and_then(|v| v.parse().ok()),
+                })
+                .await?;
+        }
+        BotState::SelectMaxMoments {
+            genre,
+            tone,
+            moves,
+            place,
+            max_episodes,
+        } => {
+            let max_moments_per_episode = parse_callback_value(&data, "maxmoments");
             let keyboard = seed_keyboard();
             bot.send_message(
                 chat_id,
@@ -241,10 +355,24 @@ async fn handle_callback(
             .reply_markup(keyboard)
             .await?;
             dialogue
-                .update(BotState::SelectSeed { genre, tone, moves })
+                .update(BotState::SelectSeed {
+                    genre,
+                    tone,
+                    moves,
+                    place,
+                    max_episodes,
+                    max_moments_per_episode: max_moments_per_episode.and_then(|v| v.parse().ok()),
+                })
                 .await?;
         }
-        BotState::SelectSeed { genre, tone, moves } => {
+        BotState::SelectSeed {
+            genre,
+            tone,
+            moves,
+            place,
+            max_episodes,
+            max_moments_per_episode,
+        } => {
             let seed = if data == "seed:skip" {
                 None
             } else {
@@ -254,6 +382,9 @@ async fn handle_callback(
                 genre,
                 tone,
                 moves,
+                place,
+                max_episodes,
+                max_moments_per_episode,
                 seed,
             };
             dialogue.update(BotState::Start).await?;
@@ -314,6 +445,35 @@ fn moves_keyboard() -> InlineKeyboardMarkup {
     ]])
 }
 
+fn place_keyboard() -> InlineKeyboardMarkup {
+    InlineKeyboardMarkup::new(vec![vec![
+        InlineKeyboardButton::callback("Ввести описание", "place:enter"),
+        InlineKeyboardButton::callback("Пропустить", "place:skip"),
+    ]])
+}
+
+fn max_episodes_keyboard() -> InlineKeyboardMarkup {
+    InlineKeyboardMarkup::new(vec![
+        vec![
+            InlineKeyboardButton::callback("3", "maxepisodes:3"),
+            InlineKeyboardButton::callback("5", "maxepisodes:5"),
+            InlineKeyboardButton::callback("8", "maxepisodes:8"),
+        ],
+        vec![InlineKeyboardButton::callback("Без ограничения", "maxepisodes:skip")],
+    ])
+}
+
+fn max_moments_keyboard() -> InlineKeyboardMarkup {
+    InlineKeyboardMarkup::new(vec![
+        vec![
+            InlineKeyboardButton::callback("2", "maxmoments:2"),
+            InlineKeyboardButton::callback("3", "maxmoments:3"),
+            InlineKeyboardButton::callback("5", "maxmoments:5"),
+        ],
+        vec![InlineKeyboardButton::callback("Без ограничения", "maxmoments:skip")],
+    ])
+}
+
 fn seed_keyboard() -> InlineKeyboardMarkup {
     InlineKeyboardMarkup::new(vec![vec![
         InlineKeyboardButton::callback("Случайный", "seed:skip"),
@@ -344,7 +504,7 @@ async fn do_generate(
         .await?;
 
     // Generate morphological structure
-    let tale = match generate_tale_structure(config.moves, config.seed) {
+    let mut tale = match generate_tale_structure(config.moves, config.seed, config.max_episodes, config.max_moments_per_episode) {
         Ok(tale) => tale,
         Err(e) => {
             error!("Structure generation failed: {}", e);
@@ -356,6 +516,15 @@ async fn do_generate(
             return Ok(());
         }
     };
+
+    // Apply place to initial situation if provided
+    if let Some(ref place) = config.place {
+        let mut initial = tale.initial.take().unwrap_or_default();
+        let mut setting = initial.setting.take().unwrap_or_default();
+        setting.place = Some(place.clone());
+        initial.setting = Some(setting);
+        tale.initial = Some(initial);
+    }
 
     let formula = Formula::from_tale(&tale);
     info!(
@@ -375,7 +544,16 @@ async fn do_generate(
 
     // Generate story text via LLM
     let client = provider.build_client();
-    let composer = StoryComposer::new(client, style).with_lang(Lang::Ru);
+    let mut composer = StoryComposer::new(client, style).with_lang(Lang::Ru);
+
+    // Apply limits
+    if let Some(max_eps) = config.max_episodes {
+        composer = composer.with_max_episodes(max_eps);
+    }
+    if let Some(max_moments) = config.max_moments_per_episode {
+        composer = composer.with_max_moments_per_episode(max_moments);
+    }
+
     let story = match composer.compose(&tale).await {
         Ok(s) => s,
         Err(e) => {
@@ -417,7 +595,7 @@ async fn do_structure(
     moves: usize,
     seed: Option<u64>,
 ) -> anyhow::Result<()> {
-    let tale = match generate_tale_structure(moves, seed) {
+    let tale = match generate_tale_structure(moves, seed, None, None) {
         Ok(t) => t,
         Err(e) => {
             bot.send_message(chat_id, format!("Ошибка: {}", e)).await?;
@@ -469,6 +647,8 @@ async fn do_structure(
 fn generate_tale_structure(
     moves: usize,
     seed: Option<u64>,
+    max_episodes: Option<usize>,
+    max_moments_per_episode: Option<usize>,
 ) -> Result<fableforge_core::Tale, String> {
     let mut gen_config = GenConfig::new()
         .with_move_count(moves..moves + 1)
@@ -476,6 +656,14 @@ fn generate_tale_structure(
 
     if let Some(s) = seed {
         gen_config = gen_config.with_seed(s);
+    }
+
+    // Apply structural limits if provided
+    if let Some(max_eps) = max_episodes {
+        gen_config = gen_config.with_max_episodes(max_eps);
+    }
+    if let Some(max_moments) = max_moments_per_episode {
+        gen_config = gen_config.with_max_moments_per_episode(max_moments);
     }
 
     let mut generator = RandomGen::new();
