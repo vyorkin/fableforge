@@ -17,6 +17,12 @@ use crate::{
 pub struct StoryComposer<C: LlmClient = crate::client::ClaudeClient> {
     client: Arc<C>,
     prompt_builder: PromptBuilder,
+    /// Maximum character count for generated story (optional).
+    max_characters: Option<usize>,
+    /// Maximum number of episodes to generate (optional).
+    max_episodes: Option<usize>,
+    /// Maximum moments per episode (optional).
+    max_moments_per_episode: Option<usize>,
 }
 
 impl<C: LlmClient> StoryComposer<C> {
@@ -25,12 +31,33 @@ impl<C: LlmClient> StoryComposer<C> {
         Self {
             client: Arc::new(client),
             prompt_builder: PromptBuilder::new(style),
+            max_characters: None,
+            max_episodes: None,
+            max_moments_per_episode: None,
         }
     }
 
     /// Set the language for prompts.
     pub fn with_lang(mut self, lang: Lang) -> Self {
         self.prompt_builder = self.prompt_builder.with_lang(lang);
+        self
+    }
+
+    /// Set maximum character count for generated story.
+    pub fn with_max_characters(mut self, max: usize) -> Self {
+        self.max_characters = Some(max);
+        self
+    }
+
+    /// Set maximum number of episodes to generate.
+    pub fn with_max_episodes(mut self, max: usize) -> Self {
+        self.max_episodes = Some(max);
+        self
+    }
+
+    /// Set maximum moments per episode.
+    pub fn with_max_moments_per_episode(mut self, max: usize) -> Self {
+        self.max_moments_per_episode = Some(max);
         self
     }
 
@@ -55,11 +82,37 @@ impl<C: LlmClient> StoryComposer<C> {
         }
 
         // Segment tale into episodes
-        let episodes = Episode::segment(tale);
+        let mut episodes = Episode::segment(tale);
         info!(
             "Segmented tale into {} episodes",
             episodes.len()
         );
+
+        // Apply episode limit if specified
+        if let Some(max_eps) = self.max_episodes {
+            if episodes.len() > max_eps {
+                info!(
+                    "Limiting episodes from {} to {}",
+                    episodes.len(),
+                    max_eps
+                );
+                episodes.truncate(max_eps);
+            }
+        }
+
+        // Apply moments per episode limit if specified
+        if let Some(max_moments) = self.max_moments_per_episode {
+            for episode in &mut episodes {
+                if episode.moments.len() > max_moments {
+                    debug!(
+                        "Limiting episode moments from {} to {}",
+                        episode.moments.len(),
+                        max_moments
+                    );
+                    episode.moments.truncate(max_moments);
+                }
+            }
+        }
 
         let mut ctx = TaleContext::new();
 
@@ -83,6 +136,19 @@ impl<C: LlmClient> StoryComposer<C> {
 
         // Phase 2: Generate narrative for each episode
         for (i, episode) in episodes.iter().enumerate() {
+            // Check character limit before generating next episode
+            if let Some(max_chars) = self.max_characters {
+                let current_length = ctx.total_text_length();
+                if current_length >= max_chars {
+                    info!(
+                        "Character limit reached ({}/{}), stopping generation",
+                        current_length,
+                        max_chars
+                    );
+                    break;
+                }
+            }
+
             match episode.kind {
                 EpisodeKind::CharacterGeneration => {
                     // Already handled above

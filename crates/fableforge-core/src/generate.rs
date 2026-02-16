@@ -47,6 +47,10 @@ pub struct GenConfig {
     pub include_subtypes: bool,
     /// Enable probabilistic sphere merging (совмещение сфер действия).
     pub sphere_merge_enabled: bool,
+    /// Maximum number of episodes (optional limit for LLM generation).
+    pub max_episodes: Option<usize>,
+    /// Maximum moments per episode (optional limit for LLM generation).
+    pub max_moments_per_episode: Option<usize>,
 }
 
 impl GenConfig {
@@ -61,6 +65,8 @@ impl GenConfig {
             include_initial: true,
             include_subtypes: true,
             sphere_merge_enabled: true,
+            max_episodes: None,
+            max_moments_per_episode: None,
         }
     }
 
@@ -103,6 +109,20 @@ impl GenConfig {
     #[must_use]
     pub fn with_sphere_merging(mut self, enabled: bool) -> Self {
         self.sphere_merge_enabled = enabled;
+        self
+    }
+
+    /// Set maximum number of episodes.
+    #[must_use]
+    pub fn with_max_episodes(mut self, max: usize) -> Self {
+        self.max_episodes = Some(max);
+        self
+    }
+
+    /// Set maximum moments per episode.
+    #[must_use]
+    pub fn with_max_moments_per_episode(mut self, max: usize) -> Self {
+        self.max_moments_per_episode = Some(max);
         self
     }
 }

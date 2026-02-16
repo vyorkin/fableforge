@@ -119,6 +119,20 @@ impl Persona {
         self.attributes = attributes;
         self
     }
+
+    /// Set name attribute.
+    #[must_use]
+    pub fn with_name(mut self, name: impl Into<String>) -> Self {
+        self.attributes
+            .insert("name".to_string(), name.into());
+        self
+    }
+
+    /// Get name attribute if present.
+    #[must_use]
+    pub fn name(&self) -> Option<&str> {
+        self.attributes.get("name").map(String::as_str)
+    }
 }
 
 #[cfg(test)]

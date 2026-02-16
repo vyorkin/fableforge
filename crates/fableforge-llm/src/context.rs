@@ -72,6 +72,11 @@ impl TaleContext {
             .unwrap_or_else(|| format!("Персонаж {}", id.0))
     }
 
+    /// Get total text length of all episodes.
+    pub fn total_text_length(&self) -> usize {
+        self.episodes.iter().map(|ep| ep.text.len()).sum()
+    }
+
     /// Convert context into final generated story.
     pub fn into_story(self) -> GeneratedStory {
         let text = self

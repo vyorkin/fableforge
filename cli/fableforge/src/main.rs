@@ -114,6 +114,30 @@ struct GenerateArgs {
     /// Build tale from a Propp formula string instead of random generation
     #[arg(long)]
     from_formula: Option<String>,
+
+    /// Place/setting description (e.g., "kingdom by the sea", "futuristic city")
+    #[arg(long)]
+    place: Option<String>,
+
+    /// Time period description (e.g., "ancient times", "year 2099")
+    #[arg(long)]
+    time: Option<String>,
+
+    /// Character names (repeatable: --name "Иван" --name "Баба-Яга")
+    #[arg(long)]
+    name: Vec<String>,
+
+    /// Maximum number of episodes to generate
+    #[arg(long)]
+    max_episodes: Option<usize>,
+
+    /// Maximum moments per episode
+    #[arg(long)]
+    max_moments_per_episode: Option<usize>,
+
+    /// Maximum character count for the entire fairy tale
+    #[arg(long)]
+    max_characters: Option<usize>,
 }
 
 #[tokio::main]
@@ -181,6 +205,12 @@ async fn generate_tale(args: GenerateArgs) -> Result<()> {
         evaluate,
         lang,
         from_formula,
+        place,
+        time,
+        name,
+        max_episodes,
+        max_moments_per_episode,
+        max_characters,
     } = args;
 
     let lang = parse_lang(&lang)?;
@@ -188,7 +218,7 @@ async fn generate_tale(args: GenerateArgs) -> Result<()> {
     // Morphological structure generation
     info!("Generating morphological structure...");
 
-    let tale = if let Some(formula_str) = from_formula {
+    let mut tale = if let Some(formula_str) = from_formula {
         let formula =
             Formula::parse(&formula_str).context("Failed to parse formula")?;
         formula.to_tale()
@@ -201,11 +231,47 @@ async fn generate_tale(args: GenerateArgs) -> Result<()> {
             gen_config = gen_config.with_seed(s);
         }
 
+        if let Some(max_eps) = max_episodes {
+            gen_config = gen_config.with_max_episodes(max_eps);
+        }
+
+        if let Some(max_moments) = max_moments_per_episode {
+            gen_config = gen_config.with_max_moments_per_episode(max_moments);
+        }
+
         let mut generator = RandomGen::new();
         generator
             .generate(&gen_config)
             .context("Failed to generate fairy-tale structure")?
     };
+
+    // Apply place/time to initial situation if provided
+    if place.is_some() || time.is_some() {
+        let mut initial = tale.initial.take().unwrap_or_default();
+        let mut setting = initial.setting.take().unwrap_or_default();
+
+        if let Some(p) = place {
+            setting.place = Some(p);
+        }
+        if let Some(t) = time {
+            setting.time = Some(t);
+        }
+
+        initial.setting = Some(setting);
+        tale.initial = Some(initial);
+    }
+
+    // Apply names to personae if provided
+    if !name.is_empty() {
+        for (idx, persona) in tale.personae.iter_mut().enumerate() {
+            if let Some(character_name) = name.get(idx) {
+                persona.attributes.insert(
+                    "name".to_string(),
+                    character_name.clone(),
+                );
+            }
+        }
+    }
 
     info!(
         "Structure: {} moves, {} characters",
@@ -296,7 +362,17 @@ async fn generate_tale(args: GenerateArgs) -> Result<()> {
     let eval_style = if evaluate { Some(style.clone()) } else { None };
 
     let client = build_client(api_key, model);
-    let composer = StoryComposer::new(client, style).with_lang(lang);
+    let mut composer = StoryComposer::new(client, style).with_lang(lang);
+
+    if let Some(max_chars) = max_characters {
+        composer = composer.with_max_characters(max_chars);
+    }
+    if let Some(max_eps) = max_episodes {
+        composer = composer.with_max_episodes(max_eps);
+    }
+    if let Some(max_moments) = max_moments_per_episode {
+        composer = composer.with_max_moments_per_episode(max_moments);
+    }
 
     let story = composer
         .compose(&tale)
