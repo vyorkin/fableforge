@@ -146,10 +146,23 @@ impl PromptBuilder {
                 Lang::En => "Story role",
                 Lang::Ru => "Роль в истории",
             };
-            personae_section.push_str(&format!(
-                "{}. {}: {}\n",
-                persona.id.0, role_label, spheres_desc
-            ));
+
+            // Check if persona already has a predefined name
+            if let Some(predefined_name) = persona.attributes.get("name") {
+                let name_label = match self.lang {
+                    Lang::En => "Predefined name",
+                    Lang::Ru => "Заданное имя",
+                };
+                personae_section.push_str(&format!(
+                    "{}. {}: {}, {}: {}\n",
+                    persona.id.0, role_label, spheres_desc, name_label, predefined_name
+                ));
+            } else {
+                personae_section.push_str(&format!(
+                    "{}. {}: {}\n",
+                    persona.id.0, role_label, spheres_desc
+                ));
+            }
         }
 
         let duality_instruction = if has_multi_sphere {
@@ -174,10 +187,11 @@ impl PromptBuilder {
 Create characters:
 
 {personae_section}{duality_instruction}
-For each character, create:
-- A name (appropriate for the chosen setting)
-- A brief epithet (2-3 words)
-- An appearance description (1-2 sentences)
+For each character:
+- If "Predefined name" is specified — use EXACTLY that name WITHOUT CHANGES
+- If no name is predefined — create a name appropriate for the chosen setting
+- Create a brief epithet (2-3 words)
+- Create an appearance description (1-2 sentences)
 
 Also create a setting appropriate for this story.
 
@@ -198,10 +212,11 @@ Reply in JSON format:
 Придумай персонажей:
 
 {personae_section}{duality_instruction}
-Для каждого персонажа придумай:
-- Имя (подходящее для выбранного сеттинга)
-- Краткую характеристику (2-3 слова)
-- Описание внешности (1-2 предложения)
+Для каждого персонажа:
+- Если указано "Заданное имя" — используй ОБЯЗАТЕЛЬНО это имя БЕЗ ИЗМЕНЕНИЙ
+- Если имя не задано — придумай имя, подходящее для выбранного сеттинга
+- Придумай краткую характеристику (2-3 слова)
+- Придумай описание внешности (1-2 предложения)
 
 Также придумай место действия, подходящее для этой истории.
 
